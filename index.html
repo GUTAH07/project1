@@ -1,0 +1,2060 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Smart Calendar</title>
+<!-- PWA -->
+<link rel="manifest" href="./manifest.json"/>
+<meta name="theme-color" content="#4361ee"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="apple-mobile-web-app-title" content="스마트캘린더"/>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f5f6fa;
+    --surface: #ffffff;
+    --surface2: #f0f2f8;
+    --border: #e2e5ef;
+    --text: #1a1d2e;
+    --text2: #5a5f7d;
+    --text3: #9095b0;
+    --accent: #4361ee;
+    --accent2: #3a0ca3;
+    --green: #2dc653;
+    --red: #ea4335;
+    --orange: #f77f00;
+    --gold: #f4a020;
+    --violet: #7b2d8b;
+    --radius: 12px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.14);
+  }
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    font-size: 14px;
+  }
+  .app { display: flex; height: 100vh; overflow: hidden; }
+  .sidebar {
+    width: 320px; min-width: 300px; background: var(--surface);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    overflow-y: auto; z-index: 10;
+  }
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  
+  .sidebar-header { padding: 20px 20px 12px; border-bottom: 1px solid var(--border); }
+  .sidebar-header h2 { font-size: 16px; font-weight: 700; color: var(--text); }
+  .sidebar-header p { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .sidebar-section { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+  .sidebar-section-title {
+    font-size: 11px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .golden-time-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .golden-time-row label { font-size: 12px; color: var(--text2); min-width: 70px; }
+  .golden-time-row input[type="time"] {
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px;
+    font-family: inherit; font-size: 12px; color: var(--text); background: var(--surface2); flex: 1;
+  }
+  
+  .task-input-row { display: flex; gap: 6px; margin-bottom: 8px; }
+  .task-input-row input, .task-input-row select {
+    flex: 1; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px;
+    font-family: inherit; font-size: 12px; background: var(--surface2); color: var(--text); outline: none;
+  }
+  .task-input-row input:focus, .task-input-row select:focus { border-color: var(--accent); background: #fff; }
+
+  .task-item {
+    background: var(--surface2); border-radius: 8px; padding: 10px 12px;
+    margin-bottom: 6px; border-left: 3px solid var(--accent);
+    display: flex; align-items: flex-start; gap: 8px; transition: box-shadow 0.15s;
+  }
+  .task-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .task-item.priority-high { border-left-color: var(--red); }
+  .task-item.priority-mid { border-left-color: var(--orange); }
+  .task-item.priority-low { border-left-color: var(--green); }
+  .task-item.done { opacity: 0.45; }
+  .task-item.done .task-name { text-decoration: line-through; }
+  .task-checkbox {
+    width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--text3);
+    cursor: pointer; flex-shrink: 0; margin-top: 2px; display: flex;
+    align-items: center; justify-content: center; background: #fff; transition: all 0.15s;
+  }
+  .task-checkbox.checked { background: var(--green); border-color: var(--green); }
+  .task-checkbox.checked::after { content: ''; width: 6px; height: 6px; background: #fff; border-radius: 50%; }
+  .task-info { flex: 1; min-width: 0; }
+  .task-name { font-size: 13px; font-weight: 500; color: var(--text); }
+  .task-badges { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+  .badge { font-size: 10px; padding: 2px 6px; border-radius: 20px; font-weight: 600; }
+  .badge-high { background: #fde8eb; color: var(--red); }
+  .badge-mid { background: #fff0db; color: var(--orange); }
+  .badge-low { background: #e4f9ed; color: #1b9244; }
+  .badge-time { background: #e8edff; color: var(--accent); }
+  .task-actions { display: flex; gap: 4px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; width: 60px;}
+  .btn-icon {
+    width: 24px; height: 24px; border: none; border-radius: 6px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: 12px;
+    transition: all 0.15s; background: transparent; color: var(--text3);
+  }
+  .btn-icon:hover { background: var(--border); color: var(--text); }
+  .btn-icon.timer-btn { background: #e8edff; color: var(--accent); font-size: 10px; width: auto; padding: 0 6px; font-weight: 600; }
+  .btn-icon.timer-btn:hover { background: var(--accent); color: #fff; }
+  .btn-icon.postpone-btn { background: #fff0db; color: var(--orange); font-size: 10px; width: auto; padding: 0 6px; font-weight: 600; }
+  .btn-icon.postpone-btn:hover { background: var(--orange); color: #fff; }
+  .btn-icon.del-btn:hover { background: #fde8eb; color: var(--red); }
+  .btn-icon.edit-btn:hover { background: #e8edff; color: var(--accent); }
+
+  .calendar-header {
+    background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 14px 24px; display: flex; align-items: center; gap: 16px; flex-shrink: 0;
+  }
+  .cal-nav { display: flex; align-items: center; gap: 8px; }
+  .btn-nav {
+    width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); cursor: pointer; display: flex; align-items: center;
+    justify-content: center; color: var(--text2); font-size: 14px; transition: all 0.15s;
+  }
+  .btn-nav:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .cal-month-title { font-size: 18px; font-weight: 700; min-width: 145px; text-align: center; }
+  
+  .view-toggle { display: flex; background: var(--surface2); border-radius: 8px; padding: 3px; }
+  .view-toggle button {
+    border: none; background: transparent; padding: 5px 14px; border-radius: 6px;
+    cursor: pointer; font-size: 13px; color: var(--text2); transition: all 0.2s; font-family: inherit;
+  }
+  .view-toggle button.active { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,0.1); color: var(--text); font-weight: 600; }
+  .view-hidden { display: none !important; }
+
+  .btn-today {
+    padding: 6px 14px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); cursor: pointer; font-family: inherit;
+    font-size: 13px; color: var(--text2); transition: all 0.15s; margin-left: 8px;
+  }
+  .btn-today:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .header-right { margin-left: auto; display: flex; gap: 8px; }
+  .btn-primary {
+    padding: 7px 16px; border: none; border-radius: 8px; background: var(--accent);
+    color: #fff; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; transition: all 0.15s;
+  }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-secondary {
+    padding: 7px 16px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); color: var(--text2); cursor: pointer;
+    font-family: inherit; font-size: 13px; transition: all 0.15s;
+  }
+  .btn-secondary:hover { background: var(--surface2); }
+
+  .calendar-body { flex: 1; overflow-y: auto; padding: 16px 20px; }
+  .weekday-row { display: grid; grid-template-columns: repeat(7,1fr); margin-bottom: 4px; }
+  .weekday-cell {
+    text-align: center; font-size: 11px; font-weight: 700;
+    color: var(--text3); text-transform: uppercase; padding: 4px 0; letter-spacing: 0.04em;
+  }
+  .weekday-cell:first-child { color: var(--red); }
+  .weekday-cell:last-child { color: var(--accent); }
+  .calendar-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 3px; }
+  .cal-cell {
+    background: var(--surface); border-radius: 8px; min-height: 90px;
+    padding: 6px; cursor: pointer; border: 1.5px solid transparent; transition: all 0.15s; position: relative;
+  }
+  .cal-cell:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(67,97,238,0.12); }
+  .cal-cell.other-month { background: transparent; opacity: 0.4; cursor: default; }
+  .cal-cell.other-month:hover { border-color: transparent; box-shadow: none; }
+  .cal-cell.today { border-color: var(--accent); background: #f0f3ff; }
+  .cal-cell.selected { border-color: var(--accent); background: #e8edff; }
+  .day-num {
+    font-size: 12px; font-weight: 600; width: 24px; height: 24px; display: flex;
+    align-items: center; justify-content: center; border-radius: 50%; color: var(--text);
+  }
+  .cal-cell.today .day-num { background: var(--accent); color: #fff; }
+  .cal-cell:nth-child(7n+1) .day-num { color: var(--red); }
+  .cal-cell:nth-child(7n) .day-num { color: var(--accent); }
+  .cal-cell.today .day-num { color: #fff !important; }
+  .event-dot {
+    font-size: 11px; margin-top: 3px; padding: 2px 5px; border-radius: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; line-height: 1.3;
+  }
+  .event-dot.cat-gold { background: #fff3cd; color: #856404; }
+  .event-dot.cat-violet { background: #f0e6f6; color: var(--violet); }
+  .event-dot.cat-green { background: #e4f9ed; color: #1b9244; }
+  .event-dot.cat-red { background: #fde8eb; color: var(--red); }
+  .event-dot.cat-blue { background: #e8edff; color: var(--accent); }
+  .event-more { font-size: 10px; color: var(--text3); padding: 1px 4px; }
+
+  .week-header-wrapper {
+    display: flex; background: var(--surface); border-bottom: 1px solid var(--border);
+    padding-right: 5px; flex-shrink: 0;
+  }
+  .week-header-grid { display: grid; grid-template-columns: repeat(7, 1fr); flex: 1; }
+  .week-day-col-hdr { text-align: center; padding: 10px 0; font-size: 12px; color: var(--text2); border-left: 1px solid var(--border); }
+  .week-day-col-hdr.today { color: var(--accent); font-weight: 700; background: #f0f3ff; }
+  .week-body { flex: 1; overflow-y: auto; display: flex; align-items: flex-start; background: var(--surface); position: relative; scroll-behavior: smooth; }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   * 시간축 수정:
+   * position:relative → 셀 자체가 기준점
+   * span은 top: -8px (셀 상단에 정렬)
+   * 이렇게 하면 i번째 셀의 상단(= i*60px)에 "i시" 레이블이 붙어
+   * 이벤트 top(=startMin px)과 정확히 일치함
+   * ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .time-axis { width: 45px; flex-shrink: 0; display: flex; flex-direction: column; background: var(--surface); }
+  .time-axis-cell { height: 60px; border-bottom: 1px solid transparent; position: relative; box-sizing: border-box; }
+  .time-axis-cell span {
+    position: absolute;
+    top: -8px;        /* ← 핵심 수정: bottom:-8px → top:-8px */
+    right: 8px;
+    font-size: 10px;
+    color: var(--text3);
+  }
+  /* 0시 레이블은 잘리지 않도록 top:2px 고정 */
+  .time-axis-cell:first-child span { top: 2px; }
+
+  .day-columns-container {
+    display: grid; grid-template-columns: repeat(7, 1fr); flex: 1;
+    background-image: linear-gradient(to bottom, transparent 59px, var(--border) 60px); background-size: 100% 60px; position: relative;
+  }
+  .week-day-col { border-left: 1px solid var(--border); position: relative; height: 1440px; min-height: 1440px; cursor: pointer; }
+  .week-day-col:hover { background: rgba(0,0,0,0.01); }
+  .week-event {
+    position: absolute; border-radius: 4px; padding: 4px;
+    font-size: 10px; overflow: hidden; color: var(--text); background: rgba(255,255,255,0.95);
+    border-left: 3px solid; box-shadow: 0 1px 3px rgba(0,0,0,0.1); transition: box-shadow 0.15s;
+  }
+  .week-event:hover { z-index: 10 !important; box-shadow: 0 3px 10px rgba(0,0,0,0.15); }
+  .week-event-title { font-weight: 600; margin-bottom: 2px; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+  .week-event-time { font-size: 9px; opacity: 0.8; }
+
+  .current-time-line {
+    position: absolute; left: 0; right: 0; height: 2px; background-color: var(--red);
+    z-index: 50; pointer-events: none; transition: top 0.5s ease;
+  }
+  .current-time-line::before {
+    content: ''; position: absolute; left: -5px; top: -4px; width: 10px; height: 10px;
+    border-radius: 50%; background-color: var(--red);
+  }
+
+  .schedule-panel {
+    width: 280px; background: var(--surface); border-left: 1px solid var(--border);
+    display: flex; flex-direction: column; overflow-y: auto; flex-shrink: 0; z-index: 10;
+  }
+  .schedule-panel-header { padding: 16px 18px; border-bottom: 1px solid var(--border); }
+  .schedule-panel-header h3 { font-size: 14px; font-weight: 700; }
+  .schedule-panel-header p { font-size: 12px; color: var(--text3); margin-top: 2px; }
+  .timeline { padding: 12px 16px; flex: 1; }
+  .time-slot { display: flex; gap: 10px; margin-bottom: 4px; min-height: 40px; }
+  .time-label { font-size: 10px; color: var(--text3); min-width: 38px; padding-top: 2px; font-weight: 500; }
+  .time-line { flex: 1; border-top: 1px dashed var(--border); padding-top: 4px; }
+  .time-event {
+    background: var(--surface2); border-radius: 6px; padding: 5px 8px; margin-bottom: 3px;
+    border-left: 3px solid var(--accent); cursor: pointer; transition: box-shadow 0.15s;
+    position: relative;
+  }
+  .time-event:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+  .time-event-header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .time-event-name { font-size: 12px; font-weight: 600; }
+  .time-event-sub { font-size: 11px; color: var(--text3); margin-top: 2px;}
+  .time-event.golden-slot { border-left-color: var(--gold); background: #fffbec; }
+
+  .time-event-actions {
+    display: none; gap: 4px; justify-content: flex-end; margin-top: 4px;
+  }
+  .time-event:hover .time-event-actions { display: flex; }
+
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100; align-items: center; justify-content: center; backdrop-filter: blur(3px); }
+  .modal-overlay.active { display: flex; }
+  .modal { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-lg); padding: 28px; width: 420px; max-width: 95vw; position: relative; animation: modalIn 0.2s ease; }
+  .modal-wide { width: 580px; }
+  @keyframes modalIn { from { opacity: 0; transform: scale(0.95) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  .modal-sub { font-size: 12px; color: var(--text3); margin-bottom: 20px; }
+  .modal-close { position: absolute; top: 16px; right: 16px; width: 28px; height: 28px; border: none; background: var(--surface2); border-radius: 6px; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; color: var(--text2); }
+  .modal-close:hover { background: var(--border); }
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 5px; display: block; }
+  .form-input { width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-family: inherit; font-size: 13px; color: var(--text); background: var(--surface2); outline: none; transition: border-color 0.15s; }
+  .form-input:focus { border-color: var(--accent); background: #fff; }
+  .form-row { display: flex; gap: 10px; }
+  .form-row .form-group { flex: 1; }
+  .color-picker { display: flex; gap: 8px; }
+  .color-btn { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform 0.15s; }
+  .color-btn:hover, .color-btn.active { border-color: var(--text); transform: scale(1.15); }
+  .modal-footer { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+  .timer-display { text-align: center; padding: 24px 0; }
+  .timer-ring { width: 140px; height: 140px; border-radius: 50%; margin: 0 auto 16px; position: relative; display: flex; align-items: center; justify-content: center; }
+  .timer-ring svg { position: absolute; top: 0; left: 0; transform: rotate(-90deg); }
+  .timer-ring-bg { fill: none; stroke: var(--border); stroke-width: 6; }
+  .timer-ring-progress { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; stroke-dasharray: 408; stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear; }
+  .timer-text { font-size: 32px; font-weight: 700; color: var(--text); line-height: 1; z-index: 1; }
+  .timer-label { font-size: 12px; color: var(--text3); margin-top: 4px; }
+  .timer-task-name { font-size: 14px; font-weight: 600; margin-bottom: 6px; color: var(--accent); }
+  .timer-controls { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+  .timer-choice { display: none; padding: 16px; background: #f0f3ff; border-radius: 10px; text-align: center; }
+  .timer-choice.show { display: block; }
+  .timer-choice p { font-size: 13px; font-weight: 600; margin-bottom: 12px; color: var(--text); }
+  .timer-choice-btns { display: flex; gap: 8px; justify-content: center; }
+  .schedule-result { margin-top: 16px; }
+  .schedule-block { display: flex; gap: 10px; align-items: stretch; margin-bottom: 6px; }
+  .schedule-block-time { font-size: 11px; color: var(--text3); min-width: 55px; padding-top: 4px; font-weight: 600; }
+  .schedule-block-bar { flex: 1; border-radius: 8px; padding: 8px 12px; border-left: 3px solid; }
+  .schedule-block-name { font-size: 13px; font-weight: 600; }
+  .schedule-block-sub { font-size: 11px; margin-top: 2px; opacity: 0.7; }
+  .subject-item { display: flex; gap: 6px; align-items: center; margin-bottom: 6px; }
+  .subject-item input { flex: 1; }
+  
+  .legend-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text2); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .stats-bar { display: flex; gap: 12px; padding: 10px 20px 10px; border-top: 1px solid var(--border); flex-shrink: 0; background: var(--surface); }
+  .stat-item { text-align: center; }
+  .stat-val { font-size: 16px; font-weight: 700; color: var(--accent); }
+  .stat-lbl { font-size: 10px; color: var(--text3); }
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+  input[type="checkbox"] { accent-color: var(--accent); }
+  .golden-highlight { background: #fffbec; border-radius: 6px; }
+  .selected-date-badge { font-size:10px; background:var(--surface2); color:var(--text2); padding:3px 8px; border-radius:12px; font-weight:500; }
+
+  /* ── PWA 알림 UI ─────────────────────────────── */
+  .pwa-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: var(--accent); color: #fff;
+    padding: 12px 20px; display: flex; align-items: center; gap: 12px;
+    z-index: 999; box-shadow: 0 -4px 20px rgba(67,97,238,0.35);
+    transform: translateY(100%); transition: transform 0.3s ease;
+    font-family: 'Noto Sans KR', sans-serif; font-size: 14px;
+  }
+  .pwa-bar.show { transform: translateY(0); }
+  .pwa-bar-icon { font-size: 22px; flex-shrink: 0; }
+  .pwa-bar-text { flex: 1; line-height: 1.4; }
+  .pwa-bar-text strong { display: block; font-size: 14px; font-weight: 700; }
+  .pwa-bar-text span { font-size: 12px; opacity: 0.85; }
+  .pwa-bar-btns { display: flex; gap: 8px; flex-shrink: 0; }
+  .pwa-btn-install {
+    background: #fff; color: var(--accent); border: none;
+    padding: 7px 14px; border-radius: 8px; font-weight: 700;
+    cursor: pointer; font-size: 13px; font-family: inherit;
+  }
+  .pwa-btn-close {
+    background: rgba(255,255,255,0.2); color: #fff; border: none;
+    width: 28px; height: 28px; border-radius: 6px; cursor: pointer;
+    font-size: 14px; display: flex; align-items: center; justify-content: center;
+  }
+
+  /* 알림 권한 배너 */
+  .notif-banner {
+    position: fixed; top: 0; left: 0; right: 0;
+    background: var(--gold); color: #1a1a1a;
+    padding: 10px 20px; display: flex; align-items: center; gap: 12px;
+    z-index: 998; font-size: 13px; font-family: 'Noto Sans KR', sans-serif;
+    transform: translateY(-100%); transition: transform 0.3s ease;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+  }
+  .notif-banner.show { transform: translateY(0); }
+  .notif-banner-text { flex: 1; }
+  .notif-banner strong { font-weight: 700; }
+  .btn-allow-notif {
+    background: #1a1a1a; color: #fff; border: none;
+    padding: 6px 14px; border-radius: 8px; font-weight: 700;
+    cursor: pointer; font-size: 12px; font-family: inherit; flex-shrink: 0;
+  }
+  .btn-deny-notif {
+    background: rgba(0,0,0,0.12); color: #1a1a1a; border: none;
+    padding: 6px 10px; border-radius: 8px; cursor: pointer;
+    font-size: 12px; font-family: inherit; flex-shrink: 0;
+  }
+
+  /* 알림 설정 버튼 (헤더) */
+  .btn-notif-settings {
+    padding: 7px 12px; border: 1px solid var(--border); border-radius: 8px;
+    background: var(--surface); cursor: pointer; font-family: inherit;
+    font-size: 13px; color: var(--text2); transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .btn-notif-settings:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-notif-settings .notif-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--text3); display: inline-block; flex-shrink: 0;
+  }
+  .btn-notif-settings.enabled .notif-dot { background: var(--green); }
+  .btn-notif-settings.denied .notif-dot { background: var(--red); }
+
+  /* 알림 설정 모달 추가 스타일 */
+  .notif-task-row {
+    display: flex; align-items: center; gap: 8px; padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .notif-task-row:last-child { border-bottom: none; }
+  .notif-task-info { flex: 1; }
+  .notif-task-name { font-size: 13px; font-weight: 600; color: var(--text); }
+  .notif-task-time { font-size: 11px; color: var(--text3); margin-top: 2px; }
+  .notif-time-input {
+    border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px;
+    font-family: inherit; font-size: 12px; color: var(--text);
+    background: var(--surface2); width: 90px;
+  }
+  .notif-toggle {
+    width: 36px; height: 20px; border-radius: 10px; background: var(--border);
+    cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0;
+    border: none; outline: none;
+  }
+  .notif-toggle.on { background: var(--green); }
+  .notif-toggle::after {
+    content: ''; width: 14px; height: 14px; background: #fff; border-radius: 50%;
+    position: absolute; top: 3px; left: 3px; transition: left 0.2s;
+  }
+  .notif-toggle.on::after { left: 19px; }
+  .notif-status-badge {
+    font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600;
+  }
+  .notif-status-badge.granted { background: #e4f9ed; color: #1b9244; }
+  .notif-status-badge.denied { background: #fde8eb; color: var(--red); }
+  .notif-status-badge.default { background: #fff3cd; color: #856404; }
+</style>
+</head>
+<body>
+<!-- PWA 설치 유도 바 (Android Chrome 전용) -->
+<div class="pwa-bar" id="pwa-install-bar">
+  <span class="pwa-bar-icon">📱</span>
+  <div class="pwa-bar-text">
+    <strong>홈 화면에 추가하기</strong>
+    <span>오프라인에서도 사용 · 알림 지원</span>
+  </div>
+  <div class="pwa-bar-btns">
+    <button class="pwa-btn-install" id="pwa-install-btn">설치</button>
+    <button class="pwa-btn-close" id="pwa-install-close">✕</button>
+  </div>
+</div>
+
+<!-- 알림 권한 요청 배너 -->
+<div class="notif-banner" id="notif-banner">
+  <span style="font-size:20px;">🔔</span>
+  <div class="notif-banner-text">
+    <strong>일정 알림을 받으시겠어요?</strong>
+    일정 시작 전 알림 + "5분 타이머" 액션 버튼을 지원합니다.
+  </div>
+  <button class="btn-allow-notif" onclick="requestNotifPermission()">허용</button>
+  <button class="btn-deny-notif" onclick="dismissNotifBanner()">나중에</button>
+</div>
+
+<!-- 알림 설정 모달 -->
+<div class="modal-overlay" id="modal-notif">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-notif')">✕</button>
+    <div class="modal-title">🔔 알림 설정</div>
+    <div class="modal-sub" id="notif-permission-status">알림 상태 확인 중...</div>
+
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text2);">알림 활성화</div>
+        <button class="notif-toggle" id="global-notif-toggle" onclick="toggleGlobalNotif()"></button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);background:var(--surface2);border-radius:8px;padding:8px 10px;line-height:1.6;">
+        ✅ <b>앱이 열려있을 때</b>: 정확한 알림<br/>
+        ✅ <b>백그라운드 탭</b>: Service Worker가 살아있으면 알림<br/>
+        ⚠️ <b>앱 완전 종료 시</b>: 서버 없이는 알림 불가 (OS 제한)
+      </div>
+    </div>
+
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;">
+        할 일별 알림 시간 설정
+      </div>
+      <div id="notif-task-list" style="max-height:260px;overflow-y:auto;">
+        <p style="font-size:12px;color:var(--text3);">할 일을 추가하면 여기에 표시됩니다.</p>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:6px;">빠른 테스트</div>
+      <button class="btn-secondary" style="width:100%;font-size:12px;" onclick="sendTestNotification()">
+        🔔 10초 후 테스트 알림 보내기
+      </button>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-notif')">닫기</button>
+      <button class="btn-primary" onclick="saveNotifSettings()">저장</button>
+    </div>
+  </div>
+</div>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h2>Smart Calendar</h2>
+      <p id="today-label">오늘 날짜 로딩 중...</p>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">골든 타임 (최고 집중 시간대)</div>
+      <div class="golden-time-row">
+        <label>시작 시간</label>
+        <input type="time" id="golden-start" value="09:00"/>
+      </div>
+      <div class="golden-time-row">
+        <label>종료 시간</label>
+        <input type="time" id="golden-end" value="12:00"/>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-section-title">
+        할 일 추가
+        <span class="selected-date-badge" id="selected-date-display">오늘</span>
+      </div>
+      <div class="task-input-row">
+        <input type="text" id="task-name-input" placeholder="과목/업무명 입력..." />
+      </div>
+      <div class="task-input-row">
+        <select id="task-priority" title="중요도">
+          <option value="high">중요도: 높음 (Red)</option>
+          <option value="mid" selected>중요도: 보통 (Gold)</option>
+          <option value="low">중요도: 낮음 (Green)</option>
+        </select>
+        <input type="date" id="task-date" title="등록할 날짜" />
+      </div>
+      <div class="task-input-row">
+        <input type="time" id="task-start" title="시작 시간"/>
+        <input type="number" id="task-hours" min="0.5" max="8" step="0.5" value="1" placeholder="소요시간(h)" title="소요 시간(시간)"/>
+      </div>
+      <button class="btn-primary" style="width:100%;font-size:13px;margin-top:2px;" onclick="addTask()">+ 할 일 등록</button>
+    </div>
+
+    <div class="sidebar-section" style="flex:1;">
+      <div class="sidebar-section-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>전체 할 일 목록</span>
+        <span id="task-count-badge" style="background:var(--accent);color:#fff;font-size:10px;padding:2px 7px;border-radius:20px;">0</span>
+      </div>
+      <div id="task-list"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <button class="btn-primary" style="width:100%;margin-bottom:6px;" onclick="openInterleaving()">교차 학습 스케줄러 실행</button>
+      <button class="btn-secondary" style="width:100%;font-size:13px;" onclick="openRescheduleModal()">빈 시간 재배치</button>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="calendar-header">
+      <div class="cal-nav">
+        <button class="btn-nav" onclick="navigateCalendar(-1)">&#8249;</button>
+        <span class="cal-month-title" id="month-title"></span>
+        <button class="btn-nav" onclick="navigateCalendar(1)">&#8250;</button>
+      </div>
+      <button class="btn-today" onclick="goToday()">오늘</button>
+      
+      <div class="view-toggle">
+        <button class="active" onclick="setViewMode('month')">월간</button>
+        <button onclick="setViewMode('week')">주간</button>
+      </div>
+
+      <div class="legend-row" style="margin-left:16px;">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>높음</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>보통</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>낮음</div>
+      </div>
+      <div class="header-right">
+        <button class="btn-notif-settings" id="notif-settings-btn" onclick="openModal('modal-notif')" title="알림 설정">
+          <span class="notif-dot"></span> 알림
+        </button>
+        <button class="btn-primary" onclick="openAddEvent()">+ 일정 추가</button>
+      </div>
+    </div>
+
+    <div style="display:flex;flex:1;overflow:hidden;">
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+        
+        <div id="view-month" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+          <div class="calendar-body">
+            <div class="weekday-row">
+              <div class="weekday-cell">일</div><div class="weekday-cell">월</div>
+              <div class="weekday-cell">화</div><div class="weekday-cell">수</div>
+              <div class="weekday-cell">목</div><div class="weekday-cell">금</div>
+              <div class="weekday-cell">토</div>
+            </div>
+            <div class="calendar-grid" id="calendar-grid"></div>
+          </div>
+          <div class="stats-bar">
+            <div class="stat-item"><div class="stat-val" id="stat-today"></div><div class="stat-lbl">오늘 날짜</div></div>
+            <div style="width:1px;background:var(--border);margin:2px 4px;"></div>
+            <div class="stat-item"><div class="stat-val" id="stat-events"></div><div class="stat-lbl">이달 일정</div></div>
+            <div style="width:1px;background:var(--border);margin:2px 4px;"></div>
+            <div class="stat-item"><div class="stat-val" id="stat-tasks"></div><div class="stat-lbl">남은 할 일</div></div>
+            <div style="width:1px;background:var(--border);margin:2px 4px;"></div>
+            <div class="stat-item"><div class="stat-val" id="stat-golden"></div><div class="stat-lbl">골든타임</div></div>
+          </div>
+        </div>
+
+        <div id="view-week" class="view-hidden" style="display:flex;flex-direction:column;flex:1;overflow:hidden;">
+          <div class="week-header-wrapper">
+            <div style="width:45px;"></div>
+            <div class="week-header-grid" id="week-header-grid"></div>
+          </div>
+          <div class="week-body" id="week-body">
+            <div class="time-axis" id="time-axis"></div>
+            <div class="day-columns-container" id="week-grid"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="schedule-panel">
+        <div class="schedule-panel-header">
+          <h3 id="panel-date-title">오늘의 시간표</h3>
+          <p id="panel-date-sub">날짜를 클릭해 확인하세요</p>
+        </div>
+        <div class="timeline" id="timeline-content"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 일정 추가 모달 -->
+<div class="modal-overlay" id="modal-event">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-event')">x</button>
+    <div class="modal-title">일정 추가</div>
+    <div class="modal-sub" id="modal-event-date-label">날짜를 선택해주세요</div>
+    <div class="form-group"><label class="form-label">일정 제목</label><input type="text" class="form-input" id="event-title"/></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">시작 시간</label><input type="time" class="form-input" id="event-start" value="09:00"/></div>
+      <div class="form-group"><label class="form-label">종료 시간</label><input type="time" class="form-input" id="event-end" value="10:00"/></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">카테고리 색상</label>
+      <div class="color-picker">
+        <div class="color-btn active" style="background:#f4a020;" data-color="gold" onclick="selectColor(this,'gold')"></div>
+        <div class="color-btn" style="background:#7b2d8b;" data-color="violet" onclick="selectColor(this,'violet')"></div>
+        <div class="color-btn" style="background:#2dc653;" data-color="green" onclick="selectColor(this,'green')"></div>
+        <div class="color-btn" style="background:#ef233c;" data-color="red" onclick="selectColor(this,'red')"></div>
+        <div class="color-btn" style="background:#4361ee;" data-color="blue" onclick="selectColor(this,'blue')"></div>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">메모 (선택)</label><input type="text" class="form-input" id="event-memo"/></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal('modal-event')">취소</button><button class="btn-primary" onclick="saveEvent()">저장</button></div>
+  </div>
+</div>
+
+<!-- 일정 수정 모달 -->
+<div class="modal-overlay" id="modal-edit-event">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-edit-event')">x</button>
+    <div class="modal-title">시간표 일정 수정</div>
+    <div class="modal-sub">일정 내용을 변경할 수 있습니다.</div>
+    <div class="form-group"><label class="form-label">일정 제목</label><input type="text" class="form-input" id="edit-ev-title"/></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">시작 시간</label><input type="time" class="form-input" id="edit-ev-start"/></div>
+      <div class="form-group"><label class="form-label">종료 시간</label><input type="time" class="form-input" id="edit-ev-end"/></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">카테고리 색상</label>
+      <div class="color-picker" id="edit-ev-color-picker">
+        <div class="color-btn edit-ev-color" style="background:#f4a020;" data-color="gold" onclick="selectEditEvColor(this,'gold')"></div>
+        <div class="color-btn edit-ev-color" style="background:#7b2d8b;" data-color="violet" onclick="selectEditEvColor(this,'violet')"></div>
+        <div class="color-btn edit-ev-color" style="background:#2dc653;" data-color="green" onclick="selectEditEvColor(this,'green')"></div>
+        <div class="color-btn edit-ev-color" style="background:#ef233c;" data-color="red" onclick="selectEditEvColor(this,'red')"></div>
+        <div class="color-btn edit-ev-color" style="background:#4361ee;" data-color="blue" onclick="selectEditEvColor(this,'blue')"></div>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">메모 (선택)</label><input type="text" class="form-input" id="edit-ev-memo"/></div>
+    <input type="hidden" id="edit-ev-dk" />
+    <input type="hidden" id="edit-ev-idx" />
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal('modal-edit-event')">취소</button><button class="btn-primary" onclick="saveEditEvent()">저장</button></div>
+  </div>
+</div>
+
+<!-- 할 일 수정 모달 -->
+<div class="modal-overlay" id="modal-edit-task">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-edit-task')">x</button>
+    <div class="modal-title">할 일 수정</div>
+    <div class="modal-sub">업무 정보, 시간 및 날짜를 변경할 수 있습니다.</div>
+    <div class="form-group"><label class="form-label">업무명</label><input type="text" class="form-input" id="edit-task-name"/></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">중요도</label>
+        <select class="form-input" id="edit-task-priority">
+          <option value="high">높음 (Red)</option>
+          <option value="mid">보통 (Gold)</option>
+          <option value="low">낮음 (Green)</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">날짜</label><input type="date" class="form-input" id="edit-task-date"/></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">시작 시간</label><input type="time" class="form-input" id="edit-task-start"/></div>
+      <div class="form-group"><label class="form-label">소요 시간(h)</label><input type="number" class="form-input" id="edit-task-hours" step="0.5" min="0.5"/></div>
+    </div>
+    <input type="hidden" id="edit-task-id" />
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal('modal-edit-task')">취소</button><button class="btn-primary" onclick="saveTaskEdit()">저장</button></div>
+  </div>
+</div>
+
+<!-- 빈 시간 재배치 모달 -->
+<div class="modal-overlay" id="modal-reschedule">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-reschedule')">x</button>
+    <div class="modal-title">빈 시간 재배치</div>
+    <div class="modal-sub">할 일을 선택해 빈 시간을 자동으로 찾아 배치합니다. 시작·종료 시간은 자유롭게 수정할 수 있습니다.</div>
+    <div class="form-group">
+      <label class="form-label">할 일 선택</label>
+      <select id="reschedule-task-select" class="form-input" onchange="updateRescheduleGap()"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">배치할 날짜</label>
+      <input type="date" id="reschedule-date" class="form-input" onchange="updateRescheduleGap()"/>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">시작 시간</label><input type="time" class="form-input" id="reschedule-start"/></div>
+      <div class="form-group"><label class="form-label">종료 시간</label><input type="time" class="form-input" id="reschedule-end"/></div>
+    </div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeModal('modal-reschedule')">취소</button><button class="btn-primary" onclick="applyReschedule()">적용 및 저장</button></div>
+  </div>
+</div>
+
+<!-- 타이머 모달 -->
+<div class="modal-overlay" id="modal-timer">
+  <div class="modal" style="text-align:center;">
+    <button class="modal-close" onclick="closeTimerModal()">x</button>
+    <div class="modal-title" style="justify-content:center;">5분 시작 모드</div>
+    <div class="modal-sub">일단 시작하면 완료하고 싶어집니다!</div>
+    <div class="timer-display">
+      <div class="timer-task-name" id="timer-task-display"></div>
+      <div class="timer-ring">
+        <svg width="140" height="140" viewBox="0 0 140 140">
+          <circle class="timer-ring-bg" cx="70" cy="70" r="65"/>
+          <circle class="timer-ring-progress" id="timer-progress-ring" cx="70" cy="70" r="65"/>
+        </svg>
+        <div><div class="timer-text" id="timer-display-text">05:00</div><div class="timer-label">남은 시간</div></div>
+      </div>
+      <div class="timer-controls" id="timer-controls">
+        <button class="btn-secondary" onclick="resetTimer()">초기화</button>
+        <button class="btn-primary" id="timer-start-btn" onclick="toggleTimer()">시작</button>
+      </div>
+    </div>
+    <div class="timer-choice" id="timer-choice">
+      <p>5분이 끝났습니다! 어떻게 할까요?</p>
+      <div class="timer-choice-btns">
+        <button class="btn-primary" onclick="timerContinue()">계속하기</button>
+        <button class="btn-secondary" onclick="timerPostpone()">일정 미루기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 교차 학습 스케줄러 모달 -->
+<div class="modal-overlay" id="modal-interleaving">
+  <div class="modal modal-wide">
+    <button class="modal-close" onclick="closeModal('modal-interleaving')">x</button>
+    <div class="modal-title">교차 학습 스케줄러</div>
+    <div class="modal-sub">기존 일정을 피해서 자동 배치하며, 적용 시 원본 할 일 목록은 스케줄로 대체됩니다.</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">스케줄 시작 기준 시간</label><input type="time" class="form-input" id="sched-start" value="09:00"/></div>
+      <div class="form-group"><label class="form-label">블록 단위 (분)</label><select class="form-input" id="sched-block"><option value="60">60분</option><option value="90" selected>90분</option><option value="120">120분</option></select></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">과목/업무 목록 (현재 할 일에서 로드됨)</label>
+      <div id="interleaving-subject-list"></div>
+      <button class="btn-secondary" style="width:100%;margin-top:6px;font-size:12px;" onclick="addInterleavingSubject()">+ 과목 추가</button>
+    </div>
+    <div class="schedule-result" id="schedule-result" style="display:none;">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px;">생성된 시간표 (기존 일정 회피됨)</div>
+      <div id="schedule-blocks-list" style="max-height:220px;overflow-y:auto;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeModal('modal-interleaving')">닫기</button>
+      <button class="btn-primary" onclick="generateSchedule()">시간표 생성</button>
+      <button class="btn-primary" id="apply-sched-btn" style="display:none;background:var(--green);" onclick="applySchedule()">오늘에 적용</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const now = new Date();
+let curYear = now.getFullYear();
+let curMonth = now.getMonth();
+let selectedDate = null;
+let currentViewMode = 'month';
+let selectedColor = 'gold';
+let events = {};    
+let tasks = [];     
+let timerInterval = null;
+let timerSeconds = 300;
+let timerRunning = false;
+let currentTimerTask = null;
+let generatedSchedule = [];
+let timeUpdateInterval = null;
+let rescheduleTargetTasks = [];
+
+const COLORS = { gold:'#f4a020', violet:'#7b2d8b', green:'#2dc653', red:'#ea4335', blue:'#4361ee' };
+const BG_COLORS = { gold:'#fffbec', violet:'#f0e6f6', green:'#e4f9ed', red:'#fde8eb', blue:'#e8edff' };
+const BLOCK_COLORS = ['#e8edff','#fff3cd','#e4f9ed','#fde8eb','#f0e6f6','#e8f8ff'];
+const BLOCK_BORDER = ['var(--accent)','var(--gold)','var(--green)','var(--red)','var(--violet)','#0ea5e9'];
+const WEEKDAYS = ['일','월','화','수','목','금','토'];
+const MONTHS = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+
+function loadData() {
+  const savedEvents = localStorage.getItem('smartCal_events');
+  const savedTasks = localStorage.getItem('smartCal_tasks');
+  if (savedEvents) { try { events = JSON.parse(savedEvents); } catch(e) { events = {}; } }
+  if (savedTasks) { try { tasks = JSON.parse(savedTasks); } catch(e) { tasks = []; } }
+}
+function saveData() {
+  localStorage.setItem('smartCal_events', JSON.stringify(events));
+  localStorage.setItem('smartCal_tasks', JSON.stringify(tasks));
+}
+
+function parseDateKey(dk) {
+  const [y, m, d] = dk.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function init() {
+  document.getElementById('today-label').textContent = `${now.getFullYear()}년 ${now.getMonth()+1}월 ${now.getDate()}일 ${WEEKDAYS[now.getDay()]}요일`;
+  updateGoldenStat();
+  
+  const currentH = String(now.getHours()).padStart(2, '0');
+  document.getElementById('task-start').value = `${currentH}:00`;
+  
+  selectedDate = dateKey(now);
+  document.getElementById('task-date').value = selectedDate;
+  
+  loadData(); 
+  
+  renderCalendar();
+  renderWeekView();
+  renderTaskList();
+  showSchedulePanel(now);
+
+  setTimeout(() => centerWeekViewToCurrentTime(), 100);
+  timeUpdateInterval = setInterval(updateCurrentTimeLine, 10000);
+
+  // ── PWA 초기화 ──────────────────────────────────
+  registerSW().then(() => {
+    initNotifUI();
+    scheduleAllTaskNotifications();
+  });
+}
+
+function centerWeekViewToCurrentTime() {
+  if (currentViewMode === 'week') {
+    const h = new Date().getHours();
+    document.getElementById('week-body').scrollTop = Math.max(0, (h * 60) - 200);
+  }
+}
+
+function dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function fmtDate(d) {
+  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 (${WEEKDAYS[d.getDay()]})`;
+}
+
+function setViewMode(mode) {
+  currentViewMode = mode;
+  document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.view-toggle button[onclick="setViewMode('${mode}')"]`).classList.add('active');
+  
+  if (mode === 'month') {
+    document.getElementById('view-month').classList.remove('view-hidden');
+    document.getElementById('view-week').classList.add('view-hidden');
+    renderCalendar();
+  } else {
+    document.getElementById('view-month').classList.add('view-hidden');
+    document.getElementById('view-week').classList.remove('view-hidden');
+    renderWeekView();
+    centerWeekViewToCurrentTime(); 
+  }
+}
+
+function navigateCalendar(dir) {
+  if (currentViewMode === 'month') {
+    curMonth += dir;
+    if(curMonth > 11) { curMonth=0; curYear++; }
+    if(curMonth < 0) { curMonth=11; curYear--; }
+    renderCalendar();
+  } else {
+    const d = selectedDate ? parseDateKey(selectedDate) : new Date();
+    d.setDate(d.getDate() + (dir * 7));
+    selectedDate = dateKey(d);
+    curMonth = d.getMonth();
+    curYear = d.getFullYear();
+    renderWeekView();
+    renderCalendar();
+  }
+  document.getElementById('task-date').value = selectedDate;
+  updateSelectedDateDisplay();
+}
+
+function goToday() {
+  curYear = now.getFullYear(); 
+  curMonth = now.getMonth();
+  selectedDate = dateKey(now);
+  document.getElementById('task-date').value = selectedDate;
+  updateSelectedDateDisplay();
+  
+  if (currentViewMode === 'month') renderCalendar();
+  else { renderWeekView(); renderCalendar(); centerWeekViewToCurrentTime(); }
+  showSchedulePanel(now);
+}
+
+function updateSelectedDateDisplay() {
+  const d = selectedDate ? parseDateKey(selectedDate) : new Date();
+  document.getElementById('selected-date-display').textContent = `${d.getMonth()+1}/${d.getDate()} 선택됨`;
+}
+
+function renderCalendar() {
+  const title = document.getElementById('month-title');
+  title.textContent = `${curYear}년 ${MONTHS[curMonth]}`;
+  const grid = document.getElementById('calendar-grid');
+  grid.innerHTML = '';
+  const first = new Date(curYear, curMonth, 1);
+  let day = new Date(curYear, curMonth, 1 - first.getDay());
+  const todayKey = dateKey(new Date());
+
+  for(let i=0; i<42; i++) {
+    const cell = document.createElement('div');
+    const dk = dateKey(day);
+    const isOther = day.getMonth() !== curMonth;
+    cell.className = 'cal-cell' + (isOther?' other-month':'') + (dk===todayKey?' today':'') + (dk===selectedDate?' selected':'');
+    
+    const numDiv = document.createElement('div');
+    numDiv.className = 'day-num'; numDiv.textContent = day.getDate();
+    cell.appendChild(numDiv);
+    
+    if(!isOther) {
+      const evts = events[dk] || [];
+      const validEvts = evts.filter(e => e && e.title);
+      validEvts.slice(0,2).forEach(e => {
+        const dot = document.createElement('div');
+        dot.className = `event-dot cat-${e.color}`;
+        dot.textContent = (e.start ? e.start+' ' : '') + e.title;
+        cell.appendChild(dot);
+      });
+      if(validEvts.length > 2) {
+        const more = document.createElement('div');
+        more.className = 'event-more'; more.textContent = `+${validEvts.length-2}개 더`;
+        cell.appendChild(more);
+      }
+    }
+    
+    const d = new Date(day);
+    cell.addEventListener('click', () => {
+      if(isOther) return;
+      selectedDate = dateKey(d);
+      document.getElementById('task-date').value = selectedDate;
+      updateSelectedDateDisplay();
+      renderCalendar();
+      if(currentViewMode === 'week') renderWeekView();
+      showSchedulePanel(d);
+    });
+    grid.appendChild(cell);
+    day.setDate(day.getDate()+1);
+  }
+  updateStats();
+}
+
+function renderWeekView() {
+  const baseDate = selectedDate ? parseDateKey(selectedDate) : new Date();
+  const startDate = new Date(baseDate);
+  startDate.setDate(startDate.getDate() - baseDate.getDay());
+
+  document.getElementById('month-title').textContent = `${baseDate.getFullYear()}년 ${baseDate.getMonth()+1}월 ${Math.ceil(baseDate.getDate()/7)}주차`;
+
+  const headerGrid = document.getElementById('week-header-grid');
+  const weekGrid = document.getElementById('week-grid');
+  headerGrid.innerHTML = ''; weekGrid.innerHTML = '';
+  const todayKey = dateKey(new Date());
+
+  for(let i=0; i<7; i++) {
+    const currentDay = new Date(startDate);
+    currentDay.setDate(startDate.getDate() + i);
+    const currentKey = dateKey(currentDay);
+    
+    const hCol = document.createElement('div');
+    hCol.className = `week-day-col-hdr ${currentKey === todayKey ? 'today' : ''}`;
+    hCol.innerHTML = `${WEEKDAYS[i]}<br><span style="font-size:16px;font-weight:600">${currentDay.getDate()}</span>`;
+    headerGrid.appendChild(hCol);
+    
+    const bCol = document.createElement('div');
+    bCol.className = 'week-day-col';
+    bCol.addEventListener('click', (e) => {
+      if (e.target === bCol) {
+        selectedDate = currentKey;
+        document.getElementById('task-date').value = selectedDate;
+        updateSelectedDateDisplay();
+        renderWeekView();
+        showSchedulePanel(currentDay);
+      }
+    });
+    
+    const dayEvents = events[currentKey] || [];
+    let sortedDayEvents = [...dayEvents]
+      .filter(e => e && e.title && e.start)
+      .map(e => ({
+        ...e,
+        startMin: timeToMinutes(e.start || '00:00'),
+        endMin: timeToMinutes(e.end || '01:00')
+      }))
+      .sort((a,b) => a.startMin - b.startMin || b.endMin - a.endMin);
+
+    let clusters = [];
+    let currentCluster = [];
+    let clusterEnd = -1;
+
+    sortedDayEvents.forEach(e => {
+      if (currentCluster.length === 0) {
+        currentCluster.push(e); clusterEnd = e.endMin;
+      } else if (e.startMin < clusterEnd) {
+        currentCluster.push(e); clusterEnd = Math.max(clusterEnd, e.endMin);
+      } else {
+        clusters.push(currentCluster); currentCluster = [e]; clusterEnd = e.endMin;
+      }
+    });
+    if (currentCluster.length > 0) clusters.push(currentCluster);
+
+    clusters.forEach(cluster => {
+      let columns = [];
+      cluster.forEach(e => {
+        let placed = false;
+        for(let j=0; j<columns.length; j++) {
+          if(columns[j][columns[j].length-1].endMin <= e.startMin) {
+            columns[j].push(e); e.colIdx = j; placed = true; break;
+          }
+        }
+        if(!placed) { columns.push([e]); e.colIdx = columns.length - 1; }
+      });
+      
+      const numCols = columns.length; 
+      
+      cluster.forEach(e => {
+        const height = Math.max(e.endMin - e.startMin, 20);
+        const evDiv = document.createElement('div');
+        evDiv.className = 'week-event';
+        evDiv.style.top = `${e.startMin}px`;
+        evDiv.style.height = `${height}px`;
+        
+        if (numCols > 1) {
+          const w = 100 / numCols;
+          evDiv.style.width = `calc(${w}% - 2px)`;
+          evDiv.style.left = `calc(${e.colIdx * w}%)`;
+        } else {
+          evDiv.style.left = '2px'; evDiv.style.right = '2px';
+        }
+
+        evDiv.style.background = BG_COLORS[e.color] || BG_COLORS.blue;
+        evDiv.style.borderLeftColor = COLORS[e.color] || COLORS.blue;
+        evDiv.innerHTML = `<div class="week-event-title">${e.title}</div><div class="week-event-time">${e.start} - ${e.end}</div>`;
+        bCol.appendChild(evDiv);
+      });
+    });
+
+    if (currentKey === todayKey) {
+      const timeLine = document.createElement('div');
+      timeLine.className = 'current-time-line';
+      const nowTime = new Date();
+      timeLine.style.top = `${nowTime.getHours() * 60 + nowTime.getMinutes()}px`;
+      bCol.appendChild(timeLine);
+    }
+    
+    weekGrid.appendChild(bCol);
+  }
+  
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // 시간축 생성 (최초 1회)
+  // 핵심 수정: i=0 부터 "0시" 레이블 표시 (i > 0 제거)
+  // span이 top:-8px 이므로 i번 셀(= i*60px 위치)의 상단에 "i시" 표시
+  // → 이벤트 top = startMin px 와 완벽히 정렬됨
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  const timeAxis = document.getElementById('time-axis');
+  if(timeAxis.children.length === 0) {
+    for(let i=0; i<24; i++) {
+      const cell = document.createElement('div');
+      cell.className = 'time-axis-cell';
+      // 모든 시간 표시 (0시 포함). CSS에서 :first-child는 top:2px로 처리
+      cell.innerHTML = `<span>${i}시</span>`;
+      timeAxis.appendChild(cell);
+    }
+  }
+}
+
+function updateCurrentTimeLine() {
+  if (currentViewMode === 'week') {
+    const lines = document.querySelectorAll('.current-time-line');
+    const nowTime = new Date();
+    const topPx = nowTime.getHours() * 60 + nowTime.getMinutes();
+    lines.forEach(l => l.style.top = `${topPx}px`);
+  }
+}
+
+function triggerRefreshViews() {
+  if (currentViewMode === 'month') renderCalendar();
+  else { renderWeekView(); renderCalendar(); }
+  const baseDate = selectedDate ? parseDateKey(selectedDate) : new Date();
+  showSchedulePanel(baseDate);
+}
+
+function addTask() {
+  const name = document.getElementById('task-name-input').value.trim();
+  if(!name) { alert('할 일 이름을 입력하세요.'); return; }
+
+  const priority = document.getElementById('task-priority').value;
+  const taskDateInput = document.getElementById('task-date').value || selectedDate || dateKey(new Date());
+  const hours = parseFloat(document.getElementById('task-hours').value) || 1;
+  const startTime = document.getElementById('task-start').value || '09:00';
+
+  const startMin = timeToMinutes(startTime);
+  const endMin = startMin + (hours * 60);
+  const endTime = minutesToTime(endMin);
+
+  const tId = Date.now();
+
+  tasks.push({
+    id: tId, name, priority, hours, 
+    date: taskDateInput, start: startTime, end: endTime, 
+    done: false, postponed: false
+  });
+
+  if(!events[taskDateInput]) events[taskDateInput] = [];
+
+  let color = 'blue';
+  if(priority === 'high') color = 'red';
+  else if(priority === 'mid') color = 'gold';
+  else color = 'green';
+
+  events[taskDateInput].push({
+    taskId: tId, title: name, start: startTime, end: endTime, color: color,
+    memo: '사이드바 할 일', postponed: false
+  });
+
+  document.getElementById('task-name-input').value = '';
+  
+  if (selectedDate !== taskDateInput) {
+    selectedDate = taskDateInput;
+    const parts = selectedDate.split('-');
+    curYear = parseInt(parts[0]);
+    curMonth = parseInt(parts[1]) - 1;
+  }
+  
+  renderTaskList();
+  triggerRefreshViews();
+  saveData();
+  onTaskChanged();
+}
+document.getElementById('task-name-input').addEventListener('keydown', e => { if(e.key==='Enter') addTask(); });
+
+function renderTaskList() {
+  const list = document.getElementById('task-list');
+  list.innerHTML='';
+  if(tasks.length===0) list.innerHTML='<p style="font-size:12px;color:var(--text3);padding:6px 0;">할 일을 추가해보세요.</p>';
+  tasks.forEach((t) => {
+    const taskDateObj = parseDateKey(t.date);
+    const dateStr = `${taskDateObj.getMonth()+1}/${taskDateObj.getDate()}`;
+    
+    const item = document.createElement('div');
+    item.className = `task-item priority-${t.priority}${t.done?' done':''}`;
+    item.innerHTML = `
+      <div class="task-checkbox${t.done?' checked':''}" onclick="toggleTask(${t.id})"></div>
+      <div class="task-info">
+        <div class="task-name">${t.name}</div>
+        <div class="task-badges">
+          <span class="badge badge-${t.priority}">${t.priority==='high'?'높음':t.priority==='mid'?'보통':'낮음'}</span>
+          <span class="badge badge-time" title="등록된 날짜와 시간">${dateStr} ${t.start}</span>
+          ${t.postponed?'<span class="badge" style="background:#ffe4ba;color:#a05200;">미뤄짐</span>':''}
+        </div>
+      </div>
+      <div class="task-actions">
+        <button class="btn-icon postpone-btn" title="일정 미루기" onclick="postponeTask(${t.id})">미루기</button>
+        <button class="btn-icon timer-btn" title="5분 타이머" onclick="openTimer(${t.id})">5min</button>
+        <button class="btn-icon edit-btn" title="수정" onclick="openEditTask(${t.id})">&#9998;</button>
+        <button class="btn-icon del-btn" title="삭제" onclick="deleteTask(${t.id})">x</button>
+      </div>`;
+    list.appendChild(item);
+  });
+  document.getElementById('stat-tasks').textContent = tasks.filter(t=>!t.done).length;
+}
+
+function toggleTask(id) { 
+  const t = tasks.find(x => x.id === id);
+  if(t) { t.done = !t.done; renderTaskList(); saveData(); }
+}
+
+function deleteTask(id) { 
+  unscheduleTaskNotification(id);
+  const t = tasks.find(x => x.id === id);
+  if(t) { if(events[t.date]) events[t.date] = events[t.date].filter(x => x.taskId !== id); }
+  tasks = tasks.filter(x => x.id !== id); 
+  renderTaskList(); triggerRefreshViews(); saveData();
+}
+
+function postponeTask(id) {
+  const t = tasks.find(x => x.id === id);
+  if (t) {
+    t.postponed = true;
+    if(events[t.date]) { events[t.date] = events[t.date].filter(x => x.taskId !== id); }
+    renderTaskList(); triggerRefreshViews(); saveData();
+  }
+}
+
+function openEditTask(id) {
+  const t = tasks.find(x => x.id === id);
+  if(!t) return;
+  document.getElementById('edit-task-id').value = id;
+  document.getElementById('edit-task-name').value = t.name;
+  document.getElementById('edit-task-priority').value = t.priority;
+  document.getElementById('edit-task-date').value = t.date;
+  document.getElementById('edit-task-hours').value = t.hours;
+  document.getElementById('edit-task-start').value = t.start;
+  openModal('modal-edit-task');
+}
+
+function saveTaskEdit() {
+  const id = parseInt(document.getElementById('edit-task-id').value);
+  const t = tasks.find(x => x.id === id);
+  if(!t) return;
+
+  const oldDate = t.date;
+  const newDate = document.getElementById('edit-task-date').value;
+
+  t.name = document.getElementById('edit-task-name').value.trim();
+  t.priority = document.getElementById('edit-task-priority').value;
+  t.date = newDate;
+  t.hours = parseFloat(document.getElementById('edit-task-hours').value) || 1;
+  t.start = document.getElementById('edit-task-start').value || '09:00';
+  
+  const startMin = timeToMinutes(t.start);
+  const endMin = startMin + (t.hours * 60);
+  t.end = minutesToTime(endMin);
+
+  let color = t.priority === 'high' ? 'red' : (t.priority === 'mid' ? 'gold' : 'green');
+
+  if(events[oldDate]) {
+    const evIdx = events[oldDate].findIndex(x => x.taskId === id);
+    if(evIdx > -1) {
+      const ev = events[oldDate].splice(evIdx, 1)[0];
+      ev.title = t.name; ev.start = t.start; ev.end = t.end; ev.color = color;
+      if(!events[newDate]) events[newDate] = [];
+      events[newDate].push(ev);
+    }
+  }
+
+  if (selectedDate !== newDate) {
+    selectedDate = newDate;
+    const parts = selectedDate.split('-');
+    curYear = parseInt(parts[0]); curMonth = parseInt(parts[1]) - 1;
+  }
+
+  renderTaskList(); triggerRefreshViews(); closeModal('modal-edit-task'); saveData(); onTaskChanged();
+}
+
+function showSchedulePanel(dateObj) {
+  const dk = dateKey(dateObj);
+  document.getElementById('panel-date-title').textContent = fmtDate(dateObj);
+  const evts = events[dk] || [];
+  const validEvts = evts.filter(e => e && e.title);
+  
+  document.getElementById('panel-date-sub').textContent = `총 ${validEvts.length}개 일정`;
+  
+  const tl = document.getElementById('timeline-content');
+  tl.innerHTML = '';
+  const golden = getGoldenRange();
+
+  if(validEvts.length===0) { tl.innerHTML = '<p style="color:var(--text3);font-size:12px;padding:10px 0;">일정이 없습니다.</p>'; return; }
+  
+  const sorted = [...validEvts].map((e, i) => ({...e, _origIdx: i})).sort((a,b) => (a.start||'00:00').localeCompare(b.start||'00:00'));
+  
+  sorted.forEach(e => {
+    const isGolden = isInGoldenTime(e.start||'00:00', golden);
+    const slot = document.createElement('div');
+    slot.className = 'time-slot' + (isGolden?' golden-highlight':'');
+    slot.innerHTML = `
+      <div class="time-label">${e.start||''}<br/><span style="font-size:9px;color:var(--text3)">${e.end||''}</span></div>
+      <div class="time-line">
+        <div class="time-event${e.postponed?' postponed':''}" style="border-left-color:${COLORS[e.color]||COLORS.blue}">
+          <div class="time-event-header">
+            <div>
+              <div class="time-event-name">${e.title} ${isGolden?'<span style="font-size:9px;background:#fff3cd;color:#856404;padding:1px 5px;border-radius:8px;">골든</span>':''}</div>
+              ${e.memo?`<div class="time-event-sub">${e.memo}</div>`:''}
+            </div>
+          </div>
+          <div class="time-event-actions">
+            <button class="btn-icon edit-btn" onclick="openEditEvent('${dk}', ${e._origIdx})" title="일정 수정">&#9998;</button>
+            <button class="btn-icon del-btn" onclick="deleteEvent('${dk}', ${e._origIdx})" title="일정 삭제">x</button>
+          </div>
+        </div>
+      </div>`;
+    tl.appendChild(slot);
+  });
+}
+
+function saveEvent() {
+  const title = document.getElementById('event-title').value.trim();
+  if(!title) { alert('제목을 입력하세요.'); return; }
+  const dk = selectedDate || dateKey(new Date());
+  if(!events[dk]) events[dk]=[];
+  events[dk].push({
+    title, color: selectedColor, start: document.getElementById('event-start').value,
+    end: document.getElementById('event-end').value, memo: document.getElementById('event-memo').value.trim(), postponed: false
+  });
+  triggerRefreshViews(); closeModal('modal-event'); saveData();
+}
+
+function deleteEvent(dk, idx) {
+  if(!confirm('선택하신 일정을 완전히 삭제하시겠습니까?')) return;
+  const ev = events[dk][idx];
+  if (ev && ev.taskId) { tasks = tasks.filter(t => t.id !== ev.taskId); }
+  events[dk].splice(idx, 1);
+  saveData(); renderTaskList(); triggerRefreshViews();
+}
+
+function openEditEvent(dk, idx) {
+  const ev = events[dk][idx];
+  if(!ev) return;
+  document.getElementById('edit-ev-dk').value = dk;
+  document.getElementById('edit-ev-idx').value = idx;
+  document.getElementById('edit-ev-title').value = ev.title;
+  document.getElementById('edit-ev-start').value = ev.start;
+  document.getElementById('edit-ev-end').value = ev.end;
+  document.getElementById('edit-ev-memo').value = ev.memo || '';
+  document.querySelectorAll('.edit-ev-color').forEach(b => b.classList.remove('active'));
+  document.querySelector(`.edit-ev-color[data-color="${ev.color || 'blue'}"]`)?.classList.add('active');
+  openModal('modal-edit-event');
+}
+
+function selectEditEvColor(el, color) {
+  document.querySelectorAll('.edit-ev-color').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function saveEditEvent() {
+  const dk = document.getElementById('edit-ev-dk').value;
+  const idx = parseInt(document.getElementById('edit-ev-idx').value);
+  const ev = events[dk][idx];
+
+  ev.title = document.getElementById('edit-ev-title').value.trim();
+  ev.start = document.getElementById('edit-ev-start').value;
+  ev.end = document.getElementById('edit-ev-end').value;
+  ev.memo = document.getElementById('edit-ev-memo').value.trim();
+  
+  const activeColorBtn = document.querySelector('.edit-ev-color.active');
+  if(activeColorBtn) ev.color = activeColorBtn.getAttribute('data-color');
+
+  if (ev.taskId) {
+    const t = tasks.find(x => x.id === ev.taskId);
+    if (t) {
+      t.name = ev.title; t.start = ev.start; t.end = ev.end;
+      t.hours = Math.max(0.5, (timeToMinutes(ev.end) - timeToMinutes(ev.start)) / 60);
+      if (ev.color === 'red') t.priority = 'high';
+      else if (ev.color === 'gold') t.priority = 'mid';
+      else if (ev.color === 'green') t.priority = 'low';
+    }
+  }
+  saveData(); triggerRefreshViews(); renderTaskList(); closeModal('modal-edit-event');
+}
+
+function timeToMinutes(t) { 
+  if(!t || typeof t !== 'string') return 0; 
+  const parts = t.split(':');
+  if(parts.length !== 2) return 0;
+  return (parseInt(parts[0], 10) * 60) + (parseInt(parts[1], 10) || 0);
+}
+
+function minutesToTime(m) { 
+  if (m < 0) m = 0;
+  const h = Math.floor(m / 60) % 24; 
+  const min = m % 60; 
+  return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`; 
+}
+
+function updateStats() {
+  document.getElementById('stat-today').textContent = `${now.getMonth()+1}/${now.getDate()}`;
+  const monthKey = `${curYear}-${String(curMonth+1).padStart(2,'0')}`;
+  let monthEvts = 0;
+  Object.keys(events).forEach(dk => { if(dk.startsWith(monthKey)) monthEvts+=events[dk].length; });
+  document.getElementById('stat-events').textContent = monthEvts;
+  document.getElementById('stat-tasks').textContent = tasks.filter(t=>!t.done).length;
+}
+
+function getGoldenRange() { return { start: document.getElementById('golden-start').value, end: document.getElementById('golden-end').value }; }
+function isInGoldenTime(timeStr, golden) { if(!timeStr) return false; return timeStr >= golden.start && timeStr <= golden.end; }
+function updateGoldenStat() { const g = getGoldenRange(); document.getElementById('stat-golden').textContent = `${g.start}-${g.end}`; }
+document.getElementById('golden-start').addEventListener('change', updateGoldenStat);
+document.getElementById('golden-end').addEventListener('change', updateGoldenStat);
+
+function openAddEvent() {
+  const d = selectedDate || dateKey(new Date()); const parts = d.split('-');
+  document.getElementById('modal-event-date-label').textContent = `${parts[0]}년 ${parseInt(parts[1])}월 ${parseInt(parts[2])}일`;
+  document.getElementById('event-title').value=''; document.getElementById('event-start').value='09:00';
+  document.getElementById('event-end').value='10:00'; document.getElementById('event-memo').value='';
+  selectedColor='gold';
+  document.querySelectorAll('.color-btn:not(.edit-ev-color)').forEach(b=>b.classList.remove('active'));
+  document.querySelector('.color-btn[data-color="gold"]:not(.edit-ev-color)').classList.add('active');
+  openModal('modal-event');
+}
+function selectColor(el, color) {
+  selectedColor = color;
+  document.querySelectorAll('.color-btn:not(.edit-ev-color)').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+}
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+document.querySelectorAll('.modal-overlay').forEach(ov => {
+  ov.addEventListener('click', e => { if(e.target===ov) ov.classList.remove('active'); });
+});
+
+function openTimer(id) {
+  currentTimerTask = tasks.find(x => x.id === id);
+  timerSeconds = 300; timerRunning = false;
+  document.getElementById('timer-task-display').textContent = currentTimerTask.name;
+  document.getElementById('timer-display-text').textContent = '05:00';
+  document.getElementById('timer-start-btn').textContent = '시작';
+  document.getElementById('timer-controls').style.display='flex';
+  document.getElementById('timer-choice').classList.remove('show');
+  setRingProgress(1.0); openModal('modal-timer');
+}
+function toggleTimer() {
+  if(timerRunning) {
+    clearInterval(timerInterval); timerRunning = false;
+    document.getElementById('timer-start-btn').textContent = '재개';
+  } else {
+    timerRunning = true;
+    document.getElementById('timer-start-btn').textContent = '일시정지';
+    timerInterval = setInterval(() => {
+      timerSeconds--;
+      updateTimerDisplay();
+      if(timerSeconds <= 0) { clearInterval(timerInterval); timerRunning = false; timerFinished(); }
+    }, 1000);
+  }
+}
+function updateTimerDisplay() {
+  const m = Math.floor(timerSeconds/60); const s = timerSeconds%60;
+  document.getElementById('timer-display-text').textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+  setRingProgress(timerSeconds/300);
+}
+function setRingProgress(ratio) { document.getElementById('timer-progress-ring').style.strokeDashoffset = 408 * (1 - ratio); }
+function resetTimer() {
+  clearInterval(timerInterval); timerRunning = false; timerSeconds = 300;
+  document.getElementById('timer-display-text').textContent = '05:00';
+  document.getElementById('timer-start-btn').textContent = '시작';
+  setRingProgress(1.0);
+  document.getElementById('timer-choice').classList.remove('show');
+  document.getElementById('timer-controls').style.display='flex';
+}
+function timerFinished() {
+  document.getElementById('timer-controls').style.display='none';
+  document.getElementById('timer-choice').classList.add('show');
+  document.getElementById('timer-display-text').textContent = '완료!';
+  document.getElementById('timer-progress-ring').style.stroke = 'var(--green)';
+}
+function timerContinue() {
+  timerSeconds = 300; timerRunning = false;
+  document.getElementById('timer-progress-ring').style.stroke = 'var(--accent)';
+  document.getElementById('timer-choice').classList.remove('show');
+  document.getElementById('timer-controls').style.display='flex';
+  document.getElementById('timer-display-text').textContent = '05:00';
+  document.getElementById('timer-start-btn').textContent = '시작';
+  setRingProgress(1.0);
+}
+function timerPostpone() { if(currentTimerTask) { postponeTask(currentTimerTask.id); } closeTimerModal(); }
+function closeTimerModal() {
+  clearInterval(timerInterval); timerRunning=false;
+  document.getElementById('timer-progress-ring').style.stroke = 'var(--accent)';
+  closeModal('modal-timer');
+}
+
+let interleavingSubjects = [];
+function openInterleaving() { 
+  interleavingSubjects = tasks.filter(t=>!t.done).map(t=>({id: t.id, name:t.name, hours:t.hours, priority:t.priority})); 
+  if(interleavingSubjects.length===0) interleavingSubjects = [{id: null, name:'과목 A', hours:2, priority:'high'},{id: null, name:'과목 B', hours:1.5, priority:'mid'}]; 
+  renderInterleavingSubjects(); 
+  document.getElementById('schedule-result').style.display='none'; 
+  document.getElementById('apply-sched-btn').style.display='none'; 
+  openModal('modal-interleaving'); 
+}
+function renderInterleavingSubjects() { 
+  const list = document.getElementById('interleaving-subject-list'); list.innerHTML=''; 
+  interleavingSubjects.forEach((s,i) => { 
+    const row = document.createElement('div'); row.className = 'subject-item'; 
+    row.innerHTML = `<input class="form-input" style="flex:2;font-size:12px;" value="${s.name}" onchange="interleavingSubjects[${i}].name=this.value"/>
+      <select class="form-input" style="flex:1;font-size:12px;" onchange="interleavingSubjects[${i}].priority=this.value">
+        <option value="high"${s.priority==='high'?' selected':''}>높음</option>
+        <option value="mid"${s.priority==='mid'?' selected':''}>보통</option>
+        <option value="low"${s.priority==='low'?' selected':''}>낮음</option>
+      </select>
+      <input class="form-input" type="number" style="flex:0.7;font-size:12px;" min="0.5" step="0.5" value="${s.hours}" onchange="interleavingSubjects[${i}].hours=parseFloat(this.value)||1"/>
+      <button class="btn-icon del-btn" onclick="interleavingSubjects.splice(${i},1);renderInterleavingSubjects()">x</button>`; 
+    list.appendChild(row); 
+  }); 
+}
+function addInterleavingSubject() { interleavingSubjects.push({id: null, name:'새 과목', hours:1, priority:'mid'}); renderInterleavingSubjects(); }
+
+function generateSchedule() { 
+  const startTime = document.getElementById('sched-start').value; 
+  const blockMin = parseInt(document.getElementById('sched-block').value); 
+  const golden = getGoldenRange(); 
+  const priorityOrder = {high:0, mid:1, low:2}; 
+  const sorted = [...interleavingSubjects].sort((a,b)=>priorityOrder[a.priority]-priorityOrder[b.priority]); 
+  let subjectBlocks = sorted.map(s => ({ ...s, blocksLeft: Math.ceil(s.hours*60/blockMin) })); 
+  
+  let schedule = []; 
+  let timeMinutes = timeToMinutes(startTime); 
+  let idx = 0; 
+
+  const dk = selectedDate || dateKey(new Date());
+  const taskIdsToSchedule = interleavingSubjects.map(s => s.id);
+  const existingEvts = [...(events[dk] || [])]
+    .filter(e => e && e.start && !taskIdsToSchedule.includes(e.taskId)) 
+    .sort((a,b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+  
+  while(subjectBlocks.some(s=>s.blocksLeft>0)) { 
+    const available = subjectBlocks.filter(s=>s.blocksLeft>0); 
+    const s = available[idx % available.length]; 
+    
+    let overlap = true;
+    while(overlap) {
+      overlap = false;
+      for(let e of existingEvts) {
+        let eStart = timeToMinutes(e.start);
+        let eEnd = timeToMinutes(e.end);
+        if(timeMinutes < eEnd && (timeMinutes + blockMin) > eStart) {
+          timeMinutes = eEnd; overlap = true; break; 
+        }
+      }
+      if (timeMinutes + blockMin > 24*60) break; 
+    }
+    if (timeMinutes + blockMin > 24*60) break; 
+
+    const start = minutesToTime(timeMinutes); 
+    const end = minutesToTime(timeMinutes + blockMin); 
+    
+    schedule.push({ 
+      id: s.id, subject: s.name, priority: s.priority, start, end, blockMin, 
+      inGolden: isInGoldenTime(start, golden),
+      colorIdx: interleavingSubjects.findIndex(x=>x.name===s.name) 
+    }); 
+    
+    s.blocksLeft--; 
+    timeMinutes += blockMin + 10; 
+    idx = (idx+1) % (available.filter(x=>x.blocksLeft>0).length || 1);
+    if(schedule.length > 30) break; 
+  } 
+  generatedSchedule = schedule; 
+  
+  const list = document.getElementById('schedule-blocks-list'); list.innerHTML=''; 
+  schedule.forEach(b => { 
+    const ci = b.colorIdx % BLOCK_COLORS.length;
+    const row = document.createElement('div'); row.className='schedule-block'; 
+    row.innerHTML=`<div class="schedule-block-time">${b.start}<br/><span style="font-size:9px;color:var(--text3)">${b.end}</span></div>
+      <div class="schedule-block-bar" style="background:${BLOCK_COLORS[ci]};border-left-color:${BLOCK_BORDER[ci]}">
+        <div class="schedule-block-name">${b.subject} ${b.inGolden?'<span style="font-size:9px;background:#fff3cd;color:#856404;padding:1px 5px;border-radius:8px;">골든</span>':''}</div>
+        <div class="schedule-block-sub">${b.blockMin}분 집중 &nbsp;|&nbsp; 중요도: ${b.priority==='high'?'높음':b.priority==='mid'?'보통':'낮음'}</div>
+      </div>`; 
+    list.appendChild(row); 
+  }); 
+  document.getElementById('schedule-result').style.display='block'; 
+  document.getElementById('apply-sched-btn').style.display='inline-flex'; 
+}
+
+function applySchedule() { 
+  const dk = selectedDate || dateKey(new Date()); 
+  if(!events[dk]) events[dk]=[]; 
+
+  const tasksToRemove = interleavingSubjects.filter(s => s.id);
+  tasksToRemove.forEach(tToRemove => {
+    tasks = tasks.filter(t => t.id !== tToRemove.id);
+    Object.keys(events).forEach(date => {
+      events[date] = events[date].filter(ev => ev.taskId !== tToRemove.id);
+    });
+  });
+
+  generatedSchedule.forEach((b) => { 
+    events[dk].push({ 
+      title: b.subject, start: b.start, end: b.end, 
+      color: ['blue','gold','green','red','violet'][b.colorIdx%5], 
+      memo: `교차학습 블록 (${b.blockMin}분)`, postponed: false 
+    }); 
+  }); 
+
+  renderTaskList(); triggerRefreshViews(); saveData(); closeModal('modal-interleaving'); 
+}
+
+function openRescheduleModal() {
+  rescheduleTargetTasks = tasks.filter(t => !t.done);
+
+  if (rescheduleTargetTasks.length === 0) {
+    alert('배치할 수 있는 할 일이 없습니다.\n먼저 할 일을 등록해 주세요.');
+    return;
+  }
+
+  const select = document.getElementById('reschedule-task-select');
+  select.innerHTML = '';
+  rescheduleTargetTasks.forEach((t, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    const tag = t.postponed ? ' [미뤄짐]' : '';
+    opt.textContent = `${t.name}${tag} (${t.hours}시간)`;
+    select.appendChild(opt);
+  });
+
+  const dk = selectedDate || dateKey(new Date());
+  document.getElementById('reschedule-date').value = dk;
+
+  updateRescheduleGap();
+  openModal('modal-reschedule');
+}
+
+function updateRescheduleGap() {
+  const selIdx = document.getElementById('reschedule-task-select').value;
+  const task = rescheduleTargetTasks[selIdx];
+  if (!task) return;
+
+  const dk = document.getElementById('reschedule-date').value || selectedDate || dateKey(new Date());
+  const isToday = (dk === dateKey(new Date()));
+  const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
+  const baseStartMin = isToday ? Math.max(9 * 60, nowMin) : 9 * 60;
+
+  const evts = (events[dk] || [])
+    .filter(e => e && e.start && e.taskId !== task.id)
+    .sort((a, b) => timeToMinutes(a.start) - timeToMinutes(b.start));
+
+  const reqMin = task.hours * 60;
+  let timeMinutes = baseStartMin;
+
+  let overlap = true;
+  while (overlap) {
+    overlap = false;
+    for (let e of evts) {
+      const eStart = timeToMinutes(e.start);
+      const eEnd = timeToMinutes(e.end);
+      if (timeMinutes < eEnd && (timeMinutes + reqMin) > eStart) {
+        timeMinutes = eEnd;
+        overlap = true;
+        break;
+      }
+    }
+    if (timeMinutes + reqMin > 24 * 60) break;
+  }
+
+  if (timeMinutes + reqMin <= 24 * 60) {
+    document.getElementById('reschedule-start').value = minutesToTime(timeMinutes);
+    document.getElementById('reschedule-end').value = minutesToTime(timeMinutes + reqMin);
+  } else {
+    const lastEnd = evts.length ? timeToMinutes(evts[evts.length - 1].end) : baseStartMin;
+    const safeStart = Math.min(lastEnd, 23 * 60);
+    document.getElementById('reschedule-start').value = minutesToTime(safeStart);
+    document.getElementById('reschedule-end').value = minutesToTime(Math.min(safeStart + reqMin, 24 * 60));
+  }
+}
+
+function applyReschedule() {
+  const selIdx = document.getElementById('reschedule-task-select').value;
+  const task = rescheduleTargetTasks[selIdx];
+  if (!task) return;
+
+  const newStart = document.getElementById('reschedule-start').value;
+  const newEnd   = document.getElementById('reschedule-end').value;
+  const newDk    = document.getElementById('reschedule-date').value || selectedDate || dateKey(new Date());
+
+  const oldDk = task.date;
+  if (events[oldDk]) {
+    events[oldDk] = events[oldDk].filter(e => e.taskId !== task.id);
+  }
+
+  task.date      = newDk;
+  task.start     = newStart;
+  task.end       = newEnd;
+  task.postponed = false;
+
+  if (!events[newDk]) events[newDk] = [];
+  events[newDk].push({
+    taskId: task.id,
+    title:  task.name,
+    start:  task.start,
+    end:    task.end,
+    color:  task.priority === 'high' ? 'red' : (task.priority === 'mid' ? 'gold' : 'green'),
+    memo:   '빈 시간 재배치',
+    postponed: false
+  });
+
+  selectedDate = newDk;
+  const parts = newDk.split('-');
+  curYear  = parseInt(parts[0]);
+  curMonth = parseInt(parts[1]) - 1;
+  document.getElementById('task-date').value = newDk;
+  updateSelectedDateDisplay();
+
+  saveData(); renderTaskList(); triggerRefreshViews(); closeModal('modal-reschedule');
+}
+
+/* ═══════════════════════════════════════════════════════
+   PWA & 알림 시스템
+   ═══════════════════════════════════════════════════════ */
+
+// ── Service Worker 등록 ──────────────────────────────
+let swRegistration = null;
+let notifSettings = {};  // { taskId: { enabled, minutesBefore } }
+let globalNotifEnabled = false;
+
+async function registerSW() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    swRegistration = await navigator.serviceWorker.register('./sw.js');
+    console.log('[PWA] SW registered:', swRegistration.scope);
+
+    // SW로부터 메시지 수신 (액션 버튼 처리)
+    navigator.serviceWorker.addEventListener('message', handleSWMessage);
+
+    // URL 파라미터로 액션 처리 (앱이 닫혀있다가 알림으로 열린 경우)
+    const params = new URLSearchParams(location.search);
+    const action = params.get('action');
+    const taskIdParam = params.get('taskId');
+    if (action && taskIdParam) {
+      const tid = parseInt(taskIdParam);
+      setTimeout(() => {
+        if (action === 'timer') openTimer(tid);
+        if (action === 'postpone') postponeTask(tid);
+        // URL 정리
+        history.replaceState({}, '', location.pathname);
+      }, 500);
+    }
+  } catch (err) {
+    console.error('[PWA] SW registration failed:', err);
+  }
+}
+
+function handleSWMessage(e) {
+  const { type, taskId } = e.data || {};
+  if (type === 'OPEN_TIMER' && taskId) {
+    setTimeout(() => openTimer(taskId), 100);
+  }
+  if (type === 'POSTPONE_TASK' && taskId) {
+    postponeTask(taskId);
+    renderTaskList();
+    triggerRefreshViews();
+  }
+  if (type === 'OPEN_APP' && taskId) {
+    const t = tasks.find(x => x.id === taskId);
+    if (t) { selectedDate = t.date; triggerRefreshViews(); }
+  }
+}
+
+// ── SW에 알림 스케줄 전송 ────────────────────────────
+async function scheduleNotificationViaSW(id, title, body, scheduledAt, taskId) {
+  if (!swRegistration?.active) return false;
+  const ch = new MessageChannel();
+  return new Promise(resolve => {
+    ch.port1.onmessage = e => resolve(e.data.ok);
+    swRegistration.active.postMessage(
+      { type: 'SCHEDULE_NOTIFICATION', payload: { id, title, body, scheduledAt, taskId } },
+      [ch.port2]
+    );
+    setTimeout(() => resolve(false), 2000);
+  });
+}
+
+async function cancelNotificationViaSW(id) {
+  if (!swRegistration?.active) return;
+  swRegistration.active.postMessage({ type: 'CANCEL_NOTIFICATION', payload: { id } });
+}
+
+// 앱이 열려있을 때 Notification API 직접 사용 (폴백)
+let inAppTimers = {};  // { notifId: timeoutId }
+
+function scheduleInAppNotification(id, title, body, scheduledAt, taskId) {
+  if (inAppTimers[id]) clearTimeout(inAppTimers[id]);
+  const delay = scheduledAt - Date.now();
+  if (delay <= 0) return;
+  inAppTimers[id] = setTimeout(() => {
+    delete inAppTimers[id];
+    fireNotification(id, title, body, taskId);
+  }, delay);
+}
+
+function cancelInAppNotification(id) {
+  if (inAppTimers[id]) { clearTimeout(inAppTimers[id]); delete inAppTimers[id]; }
+}
+
+async function fireNotification(id, title, body, taskId) {
+  if (Notification.permission !== 'granted') return;
+  try {
+    if (swRegistration) {
+      await swRegistration.showNotification(title, {
+        body, icon: './icon-192.png', tag: `task-${taskId || id}`,
+        renotify: true, requireInteraction: true, vibrate: [200, 100, 200],
+        data: { taskId, notifId: id },
+        actions: [
+          { action: 'start-timer', title: '⏱ 5분 타이머 시작' },
+          { action: 'postpone',    title: '⏰ 30분 미루기' }
+        ]
+      });
+    } else {
+      const n = new Notification(title, { body, icon: './icon-192.png', tag: `task-${id}` });
+      n.onclick = () => { openTimer(taskId); n.close(); };
+    }
+  } catch(err) { console.error('[PWA] fireNotification error:', err); }
+}
+
+// ── 알림 권한 & 배너 ─────────────────────────────────
+function initNotifUI() {
+  const perm = Notification.permission;
+  const btn = document.getElementById('notif-settings-btn');
+  if (perm === 'granted') {
+    btn.classList.add('enabled');
+    document.getElementById('notif-permission-status').innerHTML =
+      '알림 권한 <span class="notif-status-badge granted">허용됨</span>';
+  } else if (perm === 'denied') {
+    btn.classList.add('denied');
+    document.getElementById('notif-permission-status').innerHTML =
+      '알림 권한 <span class="notif-status-badge denied">차단됨</span> — 브라우저 설정에서 변경 가능';
+  } else {
+    document.getElementById('notif-permission-status').innerHTML =
+      '알림 권한 <span class="notif-status-badge default">미설정</span>';
+    // 첫 방문이거나 배너를 닫은 적이 없으면 표시
+    if (!localStorage.getItem('notif-banner-dismissed')) {
+      setTimeout(() => document.getElementById('notif-banner').classList.add('show'), 2000);
+    }
+  }
+  // 전역 설정 로드
+  const saved = localStorage.getItem('smartCal_notifSettings');
+  if (saved) { try { notifSettings = JSON.parse(saved); } catch(e){} }
+  globalNotifEnabled = localStorage.getItem('smartCal_globalNotif') === 'true';
+  updateGlobalToggle();
+}
+
+async function requestNotifPermission() {
+  dismissNotifBanner();
+  const result = await Notification.requestPermission();
+  initNotifUI();
+  if (result === 'granted') {
+    globalNotifEnabled = true;
+    localStorage.setItem('smartCal_globalNotif', 'true');
+    updateGlobalToggle();
+    scheduleAllTaskNotifications();
+  }
+}
+
+function dismissNotifBanner() {
+  document.getElementById('notif-banner').classList.remove('show');
+  localStorage.setItem('notif-banner-dismissed', '1');
+}
+
+function toggleGlobalNotif() {
+  globalNotifEnabled = !globalNotifEnabled;
+  localStorage.setItem('smartCal_globalNotif', globalNotifEnabled);
+  updateGlobalToggle();
+  if (globalNotifEnabled) {
+    if (Notification.permission !== 'granted') {
+      requestNotifPermission();
+    } else {
+      scheduleAllTaskNotifications();
+    }
+  } else {
+    cancelAllTaskNotifications();
+  }
+}
+
+function updateGlobalToggle() {
+  const toggle = document.getElementById('global-notif-toggle');
+  if (!toggle) return;
+  toggle.className = 'notif-toggle' + (globalNotifEnabled ? ' on' : '');
+}
+
+// ── 할 일별 알림 스케줄 ──────────────────────────────
+function getNotifSetting(taskId) {
+  return notifSettings[taskId] || { enabled: true, minutesBefore: 10 };
+}
+
+function scheduleAllTaskNotifications() {
+  if (!globalNotifEnabled || Notification.permission !== 'granted') return;
+  tasks.filter(t => !t.done).forEach(t => scheduleTaskNotification(t));
+}
+
+function cancelAllTaskNotifications() {
+  tasks.forEach(t => {
+    cancelNotificationViaSW(`task-${t.id}`);
+    cancelInAppNotification(`task-${t.id}`);
+  });
+}
+
+function scheduleTaskNotification(task) {
+  if (!globalNotifEnabled || Notification.permission !== 'granted') return;
+  const cfg = getNotifSetting(task.id);
+  if (!cfg.enabled) return;
+  if (!task.date || !task.start) return;
+
+  const [h, m] = task.start.split(':').map(Number);
+  const taskDate = parseDateKey(task.date);
+  taskDate.setHours(h, m, 0, 0);
+  const notifTime = taskDate.getTime() - (cfg.minutesBefore * 60 * 1000);
+  if (notifTime <= Date.now()) return;  // 이미 지난 시간
+
+  const id = `task-${task.id}`;
+  const title = `📅 ${task.name}`;
+  const mins = cfg.minutesBefore;
+  const body = `${mins}분 후 시작 예정 (${task.start}) — 지금 시작하시겠어요?`;
+
+  // SW + 인앱 이중 등록 (하나라도 살아있으면 알림 발동)
+  scheduleNotificationViaSW(id, title, body, notifTime, task.id);
+  scheduleInAppNotification(id, title, body, notifTime, task.id);
+}
+
+function unscheduleTaskNotification(taskId) {
+  const id = `task-${taskId}`;
+  cancelNotificationViaSW(id);
+  cancelInAppNotification(id);
+}
+
+// ── 알림 설정 모달 렌더링 ────────────────────────────
+function renderNotifTaskList() {
+  const container = document.getElementById('notif-task-list');
+  if (!container) return;
+  const pending = tasks.filter(t => !t.done);
+
+  if (pending.length === 0) {
+    container.innerHTML = '<p style="font-size:12px;color:var(--text3);">완료되지 않은 할 일이 없습니다.</p>';
+    return;
+  }
+
+  container.innerHTML = '';
+  pending.forEach(t => {
+    const cfg = getNotifSetting(t.id);
+    const row = document.createElement('div');
+    row.className = 'notif-task-row';
+    row.innerHTML = `
+      <div class="notif-task-info">
+        <div class="notif-task-name">${t.name}</div>
+        <div class="notif-task-time">${t.date} ${t.start}</div>
+      </div>
+      <select class="notif-time-input" id="notif-min-${t.id}" title="몇 분 전 알림">
+        <option value="5"  ${cfg.minutesBefore===5?'selected':''}>5분 전</option>
+        <option value="10" ${cfg.minutesBefore===10?'selected':''}>10분 전</option>
+        <option value="15" ${cfg.minutesBefore===15?'selected':''}>15분 전</option>
+        <option value="30" ${cfg.minutesBefore===30?'selected':''}>30분 전</option>
+        <option value="60" ${cfg.minutesBefore===60?'selected':''}>1시간 전</option>
+      </select>
+      <button class="notif-toggle ${cfg.enabled?'on':''}" id="notif-toggle-${t.id}"
+        onclick="toggleNotifForTask(${t.id}, this)"></button>`;
+    container.appendChild(row);
+  });
+}
+
+function toggleNotifForTask(taskId, btn) {
+  const cfg = getNotifSetting(taskId);
+  cfg.enabled = !cfg.enabled;
+  notifSettings[taskId] = cfg;
+  btn.className = 'notif-toggle' + (cfg.enabled ? ' on' : '');
+}
+
+function saveNotifSettings() {
+  tasks.forEach(t => {
+    const minSel = document.getElementById(`notif-min-${t.id}`);
+    if (minSel) {
+      if (!notifSettings[t.id]) notifSettings[t.id] = { enabled: true, minutesBefore: 10 };
+      notifSettings[t.id].minutesBefore = parseInt(minSel.value);
+    }
+  });
+  localStorage.setItem('smartCal_notifSettings', JSON.stringify(notifSettings));
+  // 재스케줄
+  cancelAllTaskNotifications();
+  scheduleAllTaskNotifications();
+  closeModal('modal-notif');
+  showToast('알림 설정이 저장되었습니다 🔔');
+}
+
+async function sendTestNotification() {
+  if (Notification.permission !== 'granted') {
+    await requestNotifPermission();
+    if (Notification.permission !== 'granted') return;
+  }
+  const id = `test-${Date.now()}`;
+  const scheduledAt = Date.now() + 10000;
+  await scheduleNotificationViaSW(id, '🔔 테스트 알림', '알림이 정상 동작합니다! "5분 타이머" 버튼을 눌러보세요.', scheduledAt, null);
+  scheduleInAppNotification(id, '🔔 테스트 알림', '알림이 정상 동작합니다! "5분 타이머" 버튼을 눌러보세요.', scheduledAt, null);
+  showToast('10초 후 테스트 알림이 옵니다!');
+}
+
+// ── 토스트 메시지 ────────────────────────────────────
+function showToast(msg) {
+  let toast = document.getElementById('pwa-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'pwa-toast';
+    toast.style.cssText = `
+      position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);
+      background:#1a1d2e;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;
+      font-family:'Noto Sans KR',sans-serif;z-index:9999;opacity:0;
+      transition:all 0.3s ease;pointer-events:none;white-space:nowrap;
+      box-shadow:0 4px 16px rgba(0,0,0,0.25);
+    `;
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  toast.style.opacity = '1';
+  toast.style.transform = 'translateX(-50%) translateY(0)';
+  clearTimeout(toast._timer);
+  toast._timer = setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateX(-50%) translateY(20px)';
+  }, 2500);
+}
+
+// ── PWA 설치 프롬프트 ────────────────────────────────
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  // 이미 설치됐거나 배너를 닫은 적 있으면 표시 안 함
+  if (!localStorage.getItem('pwa-install-dismissed')) {
+    setTimeout(() => document.getElementById('pwa-install-bar').classList.add('show'), 3000);
+  }
+});
+
+document.getElementById('pwa-install-btn')?.addEventListener('click', async () => {
+  if (!deferredInstallPrompt) return;
+  document.getElementById('pwa-install-bar').classList.remove('show');
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  if (outcome === 'accepted') showToast('홈 화면에 추가되었습니다! 📱');
+  deferredInstallPrompt = null;
+});
+
+document.getElementById('pwa-install-close')?.addEventListener('click', () => {
+  document.getElementById('pwa-install-bar').classList.remove('show');
+  localStorage.setItem('pwa-install-dismissed', '1');
+});
+
+window.addEventListener('appinstalled', () => {
+  document.getElementById('pwa-install-bar').classList.remove('show');
+  showToast('설치 완료! 홈 화면에서 실행하세요 🎉');
+});
+
+// ── 알림 모달 열기 훅 ────────────────────────────────
+const _origOpenModal = openModal;
+// openModal은 이미 선언돼 있으므로, notif modal 특수 처리
+function openNotifModal() {
+  renderNotifTaskList();
+  updateGlobalToggle();
+  openModal('modal-notif');
+}
+// notif-settings-btn의 onclick을 교체
+document.getElementById('notif-settings-btn').onclick = () => openNotifModal();
+
+// ── 할 일 추가/삭제 후 알림 자동 재스케줄 훅 ─────────
+// addTask, deleteTask, saveTaskEdit 완료 후 호출
+function onTaskChanged() {
+  if (globalNotifEnabled) {
+    cancelAllTaskNotifications();
+    scheduleAllTaskNotifications();
+  }
+}
+
+init();
+</script>
+</body>
+</html>
