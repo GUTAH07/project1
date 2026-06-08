@@ -69,7 +69,7 @@ async function checkScheduledNotifications() {
         data: { taskId: n.taskId, notifId: n.id },
         actions: [
           { action: 'start-timer', title: '⏱ 5분 타이머 시작' },
-          { action: 'postpone',    title: '⏰ 30분 미루기' }
+          { action: 'postpone',    title: '⏰ 미루기' }
         ]
       });
     } catch (err) {

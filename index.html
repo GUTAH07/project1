@@ -321,6 +321,119 @@
   .golden-highlight { background: #fffbec; border-radius: 6px; }
   .selected-date-badge { font-size:10px; background:var(--surface2); color:var(--text2); padding:3px 8px; border-radius:12px; font-weight:500; }
 
+  /* ── 모바일 하단 시트 & 아코디언 ────────────────── */
+  @media (max-width: 768px) {
+    .app { flex-direction: column; height: 100vh; overflow: hidden; position: relative; }
+
+    .sidebar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      width: 100% !important; min-width: unset;
+      max-height: 85vh;
+      border-right: none;
+      border-top: 1px solid var(--border);
+      border-radius: 20px 20px 0 0;
+      box-shadow: 0 -8px 32px rgba(0,0,0,0.18);
+      transform: translateY(calc(100% - 56px));
+      transition: transform 0.35s cubic-bezier(0.32,0.72,0,1);
+      z-index: 200;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .sidebar.sheet-open {
+      transform: translateY(0);
+    }
+    .sidebar-drag-handle {
+      display: flex !important;
+      justify-content: center; align-items: center;
+      padding: 10px 0 4px;
+      cursor: grab;
+      flex-shrink: 0;
+    }
+    .sidebar-drag-handle::before {
+      content: '';
+      width: 40px; height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+    }
+    .sidebar-peek-label {
+      display: flex !important;
+      align-items: center; justify-content: space-between;
+      padding: 0 20px 10px;
+      font-size: 13px; font-weight: 700; color: var(--text2);
+      cursor: pointer; user-select: none;
+    }
+    .sidebar-peek-label .peek-arrow {
+      font-size: 16px; transition: transform 0.3s; color: var(--text3);
+    }
+    .sidebar.sheet-open .sidebar-peek-label .peek-arrow {
+      transform: rotate(180deg);
+    }
+
+    .main { flex: 1; overflow: hidden; padding-bottom: 56px; }
+
+    .calendar-header {
+      padding: 10px 12px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .cal-month-title { font-size: 15px; min-width: 120px; }
+    .legend-row { display: none; }
+    .header-right { gap: 6px; }
+    .header-right .btn-primary { padding: 6px 10px; font-size: 12px; }
+    .btn-notif-settings { padding: 6px 10px; font-size: 12px; }
+
+    .schedule-panel { display: none; }
+  }
+  @media (min-width: 769px) {
+    .sidebar-drag-handle { display: none !important; }
+    .sidebar-peek-label { display: none !important; }
+  }
+
+  /* 아코디언 */
+  .accordion-header {
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer; user-select: none;
+  }
+  .accordion-header .accordion-arrow {
+    font-size: 12px; color: var(--text3); transition: transform 0.25s;
+    flex-shrink: 0; margin-left: 6px;
+  }
+  .accordion-header.open .accordion-arrow { transform: rotate(180deg); }
+  .accordion-body {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.3s ease, opacity 0.25s ease;
+    opacity: 0;
+  }
+  .accordion-body.open {
+    max-height: 600px;
+    opacity: 1;
+  }
+
+  /* 인앱 알림 배너 */
+  .inapp-notif-banner {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%) translateY(-120px);
+    background: #1a1d2e; color: #fff;
+    border-radius: 14px; padding: 14px 18px;
+    max-width: 380px; width: calc(100vw - 32px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.28);
+    z-index: 9998; transition: transform 0.35s cubic-bezier(0.32,0.72,0,1);
+    font-family: 'Noto Sans KR', sans-serif;
+  }
+  .inapp-notif-banner.show { transform: translateX(-50%) translateY(0); }
+  .inapp-notif-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+  .inapp-notif-body { font-size: 12px; opacity: 0.8; margin-bottom: 12px; line-height: 1.5; }
+  .inapp-notif-actions { display: flex; gap: 8px; }
+  .inapp-notif-btn {
+    flex: 1; padding: 8px 0; border-radius: 8px; border: none; cursor: pointer;
+    font-family: inherit; font-size: 12px; font-weight: 700; transition: opacity 0.15s;
+  }
+  .inapp-notif-btn:hover { opacity: 0.85; }
+  .inapp-notif-btn-timer { background: var(--accent); color: #fff; }
+  .inapp-notif-btn-postpone { background: rgba(255,255,255,0.15); color: #fff; }
+  .inapp-notif-btn-close { background: rgba(255,255,255,0.1); color: #fff; flex: 0; padding: 8px 12px; }
+
   /* ── PWA 알림 UI ─────────────────────────────── */
   .pwa-bar {
     position: fixed; bottom: 0; left: 0; right: 0;
@@ -419,6 +532,17 @@
 </style>
 </head>
 <body>
+<!-- 인앱 알림 배너 (포그라운드 전용) -->
+<div class="inapp-notif-banner" id="inapp-notif-banner">
+  <div class="inapp-notif-title" id="inapp-notif-title">📅 일정 알림</div>
+  <div class="inapp-notif-body" id="inapp-notif-body"></div>
+  <div class="inapp-notif-actions">
+    <button class="inapp-notif-btn inapp-notif-btn-timer" id="inapp-notif-btn-timer" onclick="inappNotifTimer()">⏱ 5분 타이머 시작</button>
+    <button class="inapp-notif-btn inapp-notif-btn-postpone" id="inapp-notif-btn-postpone" onclick="inappNotifPostpone()">⏰ 미루기</button>
+    <button class="inapp-notif-btn inapp-notif-btn-close" onclick="closeInappNotif()">✕</button>
+  </div>
+</div>
+
 <!-- PWA 설치 유도 바 (Android Chrome 전용) -->
 <div class="pwa-bar" id="pwa-install-bar">
   <span class="pwa-bar-icon">📱</span>
@@ -486,7 +610,14 @@
 </div>
 
 <div class="app">
-  <aside class="sidebar">
+  <aside class="sidebar" id="sidebar">
+    <!-- 모바일 드래그 핸들 -->
+    <div class="sidebar-drag-handle" id="sidebar-drag-handle"></div>
+    <div class="sidebar-peek-label" id="sidebar-peek-label" onclick="toggleSidebar()">
+      <span>📋 할 일 &amp; 설정</span>
+      <span class="peek-arrow">▲</span>
+    </div>
+
     <div class="sidebar-header">
       <h2>Smart Calendar</h2>
       <p id="today-label">오늘 날짜 로딩 중...</p>
@@ -504,27 +635,35 @@
       </div>
     </div>
 
+    <!-- 할 일 추가 — 아코디언 -->
     <div class="sidebar-section">
-      <div class="sidebar-section-title">
-        할 일 추가
-        <span class="selected-date-badge" id="selected-date-display">오늘</span>
+      <div class="accordion-header" id="add-task-accordion-header" onclick="toggleAddTaskAccordion()">
+        <div class="sidebar-section-title" style="margin-bottom:0;flex:1;">
+          <span>할 일 추가</span>
+          <span class="selected-date-badge" id="selected-date-display">오늘</span>
+        </div>
+        <span class="accordion-arrow">▼</span>
       </div>
-      <div class="task-input-row">
-        <input type="text" id="task-name-input" placeholder="과목/업무명 입력..." />
+      <div class="accordion-body" id="add-task-accordion-body">
+        <div style="padding-top:10px;">
+          <div class="task-input-row">
+            <input type="text" id="task-name-input" placeholder="과목/업무명 입력..." />
+          </div>
+          <div class="task-input-row">
+            <select id="task-priority" title="중요도">
+              <option value="high">중요도: 높음 (Red)</option>
+              <option value="mid" selected>중요도: 보통 (Gold)</option>
+              <option value="low">중요도: 낮음 (Green)</option>
+            </select>
+            <input type="date" id="task-date" title="등록할 날짜" />
+          </div>
+          <div class="task-input-row">
+            <input type="time" id="task-start" title="시작 시간"/>
+            <input type="number" id="task-hours" min="0.5" max="8" step="0.5" value="1" placeholder="소요시간(h)" title="소요 시간(시간)"/>
+          </div>
+          <button class="btn-primary" style="width:100%;font-size:13px;margin-top:2px;" onclick="addTask()">+ 할 일 등록</button>
+        </div>
       </div>
-      <div class="task-input-row">
-        <select id="task-priority" title="중요도">
-          <option value="high">중요도: 높음 (Red)</option>
-          <option value="mid" selected>중요도: 보통 (Gold)</option>
-          <option value="low">중요도: 낮음 (Green)</option>
-        </select>
-        <input type="date" id="task-date" title="등록할 날짜" />
-      </div>
-      <div class="task-input-row">
-        <input type="time" id="task-start" title="시작 시간"/>
-        <input type="number" id="task-hours" min="0.5" max="8" step="0.5" value="1" placeholder="소요시간(h)" title="소요 시간(시간)"/>
-      </div>
-      <button class="btn-primary" style="width:100%;font-size:13px;margin-top:2px;" onclick="addTask()">+ 할 일 등록</button>
     </div>
 
     <div class="sidebar-section" style="flex:1;">
@@ -1176,7 +1315,10 @@ function renderTaskList() {
       </div>`;
     list.appendChild(item);
   });
-  document.getElementById('stat-tasks').textContent = tasks.filter(t=>!t.done).length;
+  const remaining = tasks.filter(t=>!t.done).length;
+  document.getElementById('stat-tasks').textContent = remaining;
+  const badge = document.getElementById('task-count-badge');
+  if (badge) badge.textContent = remaining;
 }
 
 function toggleTask(id) { 
@@ -1716,8 +1858,14 @@ async function registerSW() {
     if (action && taskIdParam) {
       const tid = parseInt(taskIdParam);
       setTimeout(() => {
-        if (action === 'timer') openTimer(tid);
-        if (action === 'postpone') postponeTask(tid);
+        if (action === 'timer') {
+          openTimer(tid);
+          setTimeout(() => { if (!timerRunning) toggleTimer(); }, 200);
+        }
+        if (action === 'postpone') {
+          postponeTask(tid);
+          showToast('일정이 미뤄졌습니다 ⏰');
+        }
         // URL 정리
         history.replaceState({}, '', location.pathname);
       }, 500);
@@ -1730,12 +1878,17 @@ async function registerSW() {
 function handleSWMessage(e) {
   const { type, taskId } = e.data || {};
   if (type === 'OPEN_TIMER' && taskId) {
-    setTimeout(() => openTimer(taskId), 100);
+    setTimeout(() => {
+      openTimer(taskId);
+      // 알림에서 '5분 타이머 시작' 누른 경우 자동 시작
+      setTimeout(() => { if (!timerRunning) toggleTimer(); }, 200);
+    }, 100);
   }
   if (type === 'POSTPONE_TASK' && taskId) {
     postponeTask(taskId);
     renderTaskList();
     triggerRefreshViews();
+    showToast('일정이 미뤄졌습니다 ⏰');
   }
   if (type === 'OPEN_APP' && taskId) {
     const t = tasks.find(x => x.id === taskId);
@@ -1789,13 +1942,15 @@ async function fireNotification(id, title, body, taskId) {
         data: { taskId, notifId: id },
         actions: [
           { action: 'start-timer', title: '⏱ 5분 타이머 시작' },
-          { action: 'postpone',    title: '⏰ 30분 미루기' }
+          { action: 'postpone',    title: '⏰ 미루기' }
         ]
       });
     } else {
       const n = new Notification(title, { body, icon: './icon-192.png', tag: `task-${id}` });
-      n.onclick = () => { openTimer(taskId); n.close(); };
+      n.onclick = () => { if (taskId) openTimer(taskId); n.close(); };
     }
+    // 인앱 알림 배너도 표시 (앱이 포그라운드일 때)
+    showInAppNotifBanner(title, body, taskId);
   } catch(err) { console.error('[PWA] fireNotification error:', err); }
 }
 
@@ -2033,6 +2188,85 @@ window.addEventListener('appinstalled', () => {
   document.getElementById('pwa-install-bar').classList.remove('show');
   showToast('설치 완료! 홈 화면에서 실행하세요 🎉');
 });
+
+// ── 모바일 하단 시트 ──────────────────────────────
+let sidebarOpen = false;
+function toggleSidebar(forceOpen) {
+  const sb = document.getElementById('sidebar');
+  if (forceOpen !== undefined) { sidebarOpen = forceOpen; }
+  else { sidebarOpen = !sidebarOpen; }
+  sb.classList.toggle('sheet-open', sidebarOpen);
+}
+
+// 드래그로 시트 열기/닫기
+(function() {
+  let startY = 0, startOpen = false, dragging = false;
+  const handle = document.getElementById('sidebar-drag-handle');
+  if (!handle) return;
+  handle.addEventListener('touchstart', e => {
+    startY = e.touches[0].clientY;
+    startOpen = sidebarOpen;
+    dragging = true;
+  }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (!dragging) return;
+    dragging = false;
+    const dy = e.changedTouches[0].clientY - startY;
+    if (dy < -40) toggleSidebar(true);
+    else if (dy > 40) toggleSidebar(false);
+  }, { passive: true });
+})();
+
+// ── 할 일 추가 아코디언 ───────────────────────────
+let addTaskAccordionOpen = false;
+function toggleAddTaskAccordion() {
+  addTaskAccordionOpen = !addTaskAccordionOpen;
+  const header = document.getElementById('add-task-accordion-header');
+  const body = document.getElementById('add-task-accordion-body');
+  if (header) header.classList.toggle('open', addTaskAccordionOpen);
+  if (body) body.classList.toggle('open', addTaskAccordionOpen);
+}
+
+// ── 인앱 알림 배너 (포그라운드) ───────────────────
+let inappNotifTaskId = null;
+let inappNotifTimer_id = null;
+
+function showInAppNotifBanner(title, body, taskId) {
+  inappNotifTaskId = taskId;
+  const banner = document.getElementById('inapp-notif-banner');
+  document.getElementById('inapp-notif-title').textContent = title;
+  document.getElementById('inapp-notif-body').textContent = body;
+  banner.classList.add('show');
+  // 10초 후 자동 닫기
+  clearTimeout(inappNotifTimer_id);
+  inappNotifTimer_id = setTimeout(closeInappNotif, 10000);
+}
+
+function closeInappNotif() {
+  clearTimeout(inappNotifTimer_id);
+  document.getElementById('inapp-notif-banner').classList.remove('show');
+}
+
+function inappNotifTimer() {
+  closeInappNotif();
+  if (inappNotifTaskId) {
+    openTimer(inappNotifTaskId);
+    // 타이머 모달 열면 자동 시작
+    setTimeout(() => {
+      if (!timerRunning) toggleTimer();
+    }, 200);
+  }
+}
+
+function inappNotifPostpone() {
+  closeInappNotif();
+  if (inappNotifTaskId) {
+    postponeTask(inappNotifTaskId);
+    renderTaskList();
+    triggerRefreshViews();
+    showToast('일정이 미뤄졌습니다 ⏰');
+  }
+}
 
 // ── 알림 모달 열기 훅 ────────────────────────────────
 const _origOpenModal = openModal;
